@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "deploy": "cd .. && mix assets.deploy"
+  },
+  "dependencies": {
+    "phoenix": "latest",
+    "phoenix_html": "latest",
+    "phoenix_live_view": "latest"
+  },
+  "devDependencies": {}
+}

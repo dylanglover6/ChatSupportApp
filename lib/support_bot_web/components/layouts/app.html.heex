@@ -1,0 +1,17 @@
+<div class="shell">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">FlowDesk support operations</p>
+      <h1>SupportBot</h1>
+    </div>
+    <nav class="nav">
+      <.link navigate={~p"/chat"}>Chat</.link>
+      <.link navigate={~p"/tickets"}>Manager Dashboard</.link>
+      <.link navigate={~p"/kb"}>Knowledge Base</.link>
+    </nav>
+  </header>
+  <main>
+    <p :if={Phoenix.Flash.get(@flash, :info)} class="flash">{Phoenix.Flash.get(@flash, :info)}</p>
+    {@inner_content}
+  </main>
+</div>
