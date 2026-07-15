@@ -1,0 +1,129 @@
+<section id="hero" class="hero">
+  <div class="hero-layer hero-bg-grid" data-parallax="0.15" aria-hidden="true"></div>
+  <div class="hero-layer hero-clouds" data-parallax="0.35" aria-hidden="true">
+    <span class="hero-shape hero-shape-1"></span>
+    <span class="hero-shape hero-shape-2"></span>
+    <span class="hero-shape hero-shape-3"></span>
+  </div>
+  <div class="hero-layer hero-content" data-parallax="0.6">
+    <h1 class="hero-headline">
+      <span class="headline-line">HOWDY!</span>
+      <span class="headline-line">My name is Dylan Glover.</span>
+    </h1>
+    <p class="hero-subline">TODO(dylan): one-line positioning statement goes here.</p>
+  </div>
+  <div class="hero-scanlines scanlines" aria-hidden="true"></div>
+  <a href="#about" class="scroll-hint" aria-label="Scroll to About section">▼</a>
+</section>
+
+<section id="about" class="section about-section reveal">
+  <h2>About</h2>
+  <div class="about-grid">
+    <div class="about-avatar-wrap">
+      <div class="about-avatar" aria-hidden="true">DG</div>
+      <p class="muted small">TODO(dylan): swap in a real headshot / pixel avatar image.</p>
+    </div>
+    <div class="about-copy">
+      <p>TODO(dylan): short bio paragraph — who you are, what you do.</p>
+      <p>
+        TODO(dylan): longer bio paragraph — background, interests, what you're building
+        toward.
+      </p>
+      <div class="skills-grid">
+        <div class="skills-group">
+          <h3>Languages</h3>
+          <div class="pixel-card skill-tile">
+            <span>Elixir</span><span class="skill-dots" aria-hidden="true">■■■</span>
+          </div>
+          <div class="pixel-card skill-tile">
+            <span>JavaScript</span><span class="skill-dots" aria-hidden="true">■■□</span>
+          </div>
+        </div>
+        <div class="skills-group">
+          <h3>Frameworks</h3>
+          <div class="pixel-card skill-tile">
+            <span>Phoenix / LiveView</span><span class="skill-dots" aria-hidden="true">■■■</span>
+          </div>
+          <div class="pixel-card skill-tile">
+            <span>Ecto</span><span class="skill-dots" aria-hidden="true">■■□</span>
+          </div>
+        </div>
+        <div class="skills-group">
+          <h3>Tools</h3>
+          <div class="pixel-card skill-tile">
+            <span>PostgreSQL</span><span class="skill-dots" aria-hidden="true">■■□</span>
+          </div>
+          <div class="pixel-card skill-tile">
+            <span>Ollama / local LLMs</span><span class="skill-dots" aria-hidden="true">■■□</span>
+          </div>
+        </div>
+      </div>
+      <p class="muted small">
+        TODO(dylan): expand/adjust the skills grid above with your real stack.
+      </p>
+      <.link navigate={~p"/docs"} class="text-link">Full breakdown in DylanDocs →</.link>
+    </div>
+  </div>
+</section>
+
+<section id="projects" class="section projects-section reveal">
+  <h2>Projects</h2>
+  <div class="projects-grid">
+    <article :for={project <- @projects} class="pixel-card project-card">
+      <h3>{project.name}</h3>
+      <p>{project.tagline}</p>
+      <div class="badge-row">
+        <span :for={tech <- project.stack} class="badge">{tech}</span>
+      </div>
+      <div class="project-links">
+        <a :if={project.github} href={project.github} target="_blank" rel="noopener noreferrer">
+          GitHub →
+        </a>
+        <a :if={project.live} href={project.live} target="_blank" rel="noopener noreferrer">
+          Live →
+        </a>
+      </div>
+    </article>
+  </div>
+</section>
+
+<section id="resume" class="section resume-section reveal">
+  <h2>Resume</h2>
+  <p>Want the short version? Grab the PDF.</p>
+  <a class="btn btn-primary" href="/resume.pdf" download>Download Resume [PDF]</a>
+  <p><.link navigate={~p"/docs"} class="text-link">or read the extended version in DylanDocs</.link></p>
+</section>
+
+<section id="docs-teaser" class="section docs-teaser-section reveal">
+  <h2>DylanDocs</h2>
+  <div class="terminal-window">
+    <div class="terminal-titlebar" aria-hidden="true">
+      <span class="terminal-dot"></span><span class="terminal-dot"></span><span class="terminal-dot"></span>
+    </div>
+    <pre class="terminal-body"><code>$ man dylan
+
+DYLAN(1)                  User Manual                  DYLAN(1)
+
+NAME
+       dylan - support triage engineer &amp; elixir enthusiast
+
+SEE ALSO
+       chat(1), tickets(1), coffee(1)</code></pre>
+  </div>
+  <div class="docs-teaser-actions">
+    <.link navigate={~p"/docs"} class="btn btn-primary">Open DylanDocs →</.link>
+    <p class="muted small">…or just ask DylanBot in the corner.</p>
+  </div>
+</section>
+
+<section id="contact" class="section contact-section reveal">
+  <h2>Contact</h2>
+  <div class="contact-links">
+    <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
+    <a href="https://github.com/dylanglover6" target="_blank" rel="noopener noreferrer">GitHub</a>
+    <a href="#">TODO(dylan): LinkedIn URL</a>
+  </div>
+  <footer class="site-footer">
+    <p>Built with Phoenix LiveView + Ollama · © 2026 Dylan Glover</p>
+  </footer>
+</section>

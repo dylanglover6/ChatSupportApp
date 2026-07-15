@@ -18,10 +18,10 @@
       <span class="dg-monogram" aria-hidden="true">DG</span> Dylan Glover
     </.link>
     <nav class="sidebar-nav">
-      <.link class="nav-link" data-nav-link navigate={~p"/"}>Home</.link>
-      <a class="nav-link" href="/#about">About</a>
-      <a class="nav-link" href="/#projects">Projects</a>
-      <a class="nav-link" href="/#resume">Resume</a>
+      <.link class="nav-link" data-nav-link data-scroll-link="hero" navigate={~p"/"}>Home</.link>
+      <a class="nav-link" data-scroll-link="about" href="/#about">About</a>
+      <a class="nav-link" data-scroll-link="projects" href="/#projects">Projects</a>
+      <a class="nav-link" data-scroll-link="resume" href="/#resume">Resume</a>
       <.link class="nav-link" data-nav-link navigate={~p"/docs"}>DylanDocs</.link>
       <.link class="nav-link" data-nav-link navigate={~p"/support"}>DylanSupport</.link>
     </nav>
@@ -34,10 +34,10 @@
       </button>
     </div>
     <nav class="mobile-overlay-nav" aria-label="Mobile primary">
-      <.link data-nav-link navigate={~p"/"}>Home</.link>
-      <a href="/#about">About</a>
-      <a href="/#projects">Projects</a>
-      <a href="/#resume">Resume</a>
+      <.link data-nav-link data-scroll-link="hero" navigate={~p"/"}>Home</.link>
+      <a data-scroll-link="about" href="/#about">About</a>
+      <a data-scroll-link="projects" href="/#projects">Projects</a>
+      <a data-scroll-link="resume" href="/#resume">Resume</a>
       <.link data-nav-link navigate={~p"/docs"}>DylanDocs</.link>
       <.link data-nav-link navigate={~p"/support"}>DylanSupport</.link>
     </nav>
