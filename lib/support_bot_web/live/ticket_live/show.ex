@@ -55,7 +55,7 @@ defmodule SupportBotWeb.TicketLive.Show do
             <.link
               :for={source <- @ticket.kb_sources}
               class="badge badge-normal"
-              navigate={~p"/kb/#{source["slug"]}"}
+              navigate={~p"/docs/#{source["slug"]}"}
             >
               {source["title"]}
             </.link>

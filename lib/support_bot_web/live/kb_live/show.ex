@@ -10,7 +10,7 @@ defmodule SupportBotWeb.KBLive.Show do
     if article do
       {:ok, assign(socket, page_title: article.title, article: article)}
     else
-      {:ok, push_navigate(assign(socket, :page_title, "Knowledge Base"), to: ~p"/kb")}
+      {:ok, push_navigate(assign(socket, :page_title, "Knowledge Base"), to: ~p"/docs")}
     end
   end
 
@@ -18,7 +18,7 @@ defmodule SupportBotWeb.KBLive.Show do
   def render(assigns) do
     ~H"""
     <section class="panel">
-      <p><.link navigate={~p"/kb"}>Back to Knowledge Base</.link></p>
+      <p><.link navigate={~p"/docs"}>Back to Knowledge Base</.link></p>
       <h2>{@article.title}</h2>
       <p class="muted"><code>{@article.path}</code> · slug: {@article.slug}</p>
       <pre class="article-body"><%= @article.body %></pre>

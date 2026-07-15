@@ -15,10 +15,16 @@ defmodule SupportBotWeb.Router do
 
     get "/", PageController, :home
     live "/chat", ChatLive
-    live "/tickets", TicketLive.Index
-    live "/tickets/:id", TicketLive.Show
-    live "/kb", KBLive.Index
-    live "/kb/:slug", KBLive.Show
+    live "/support", TicketLive.Index
+    live "/support/:id", TicketLive.Show
+    live "/docs", KBLive.Index
+    live "/docs/:slug", KBLive.Show
+
+    # Legacy paths — permanent redirects to the renamed routes.
+    get "/tickets", PageController, :redirect_to_support
+    get "/tickets/:id", PageController, :redirect_ticket_to_support
+    get "/kb", PageController, :redirect_to_docs
+    get "/kb/:slug", PageController, :redirect_kb_to_docs
   end
 
   if Application.compile_env(:support_bot, :dev_routes) do

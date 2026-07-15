@@ -55,7 +55,7 @@ defmodule SupportBotWeb.TicketLive.Index do
               <td colspan="6" class="muted">No tickets yet. Create one from the chat page.</td>
             </tr>
             <tr :for={ticket <- @tickets}>
-              <td><.link navigate={~p"/tickets/#{ticket.id}"}>{ticket.title}</.link></td>
+              <td><.link navigate={~p"/support/#{ticket.id}"}>{ticket.title}</.link></td>
               <td>{ticket.customer_email}</td>
               <td>
                 <.badge>{ticket.category}</.badge>

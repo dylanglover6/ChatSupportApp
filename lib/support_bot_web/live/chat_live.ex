@@ -114,7 +114,7 @@ defmodule SupportBotWeb.ChatLive do
               <.link
                 :for={source <- message.sources}
                 class="source-link"
-                navigate={~p"/kb/#{source["slug"]}"}
+                navigate={~p"/docs/#{source["slug"]}"}
               >{source["title"]}</.link>
             </div>
             <div :if={message.role == "assistant"} class="chat-actions">
@@ -149,7 +149,7 @@ defmodule SupportBotWeb.ChatLive do
         <p class="muted">
           In a production version, a confirmation summary would be emailed to the customer.
         </p>
-        <.link class="button primary" navigate={~p"/tickets/#{@created_ticket.id}"}>View Ticket</.link>
+        <.link class="button primary" navigate={~p"/support/#{@created_ticket.id}"}>View Ticket</.link>
       </section>
 
       <div :if={@show_ticket_form} class="modal-backdrop">

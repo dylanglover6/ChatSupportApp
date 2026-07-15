@@ -1,17 +1,54 @@
-<div class="shell">
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">FlowDesk support operations</p>
-      <h1>SupportBot</h1>
-    </div>
-    <nav class="nav">
-      <.link navigate={~p"/chat"}>Chat</.link>
-      <.link navigate={~p"/tickets"}>Manager Dashboard</.link>
-      <.link navigate={~p"/kb"}>Knowledge Base</.link>
-    </nav>
+<div class="app-shell">
+  <header class="topbar-mobile">
+    <.link navigate={~p"/"} class="dg-monogram" aria-label="Dylan Glover — home">DG</.link>
+    <button
+      type="button"
+      class="hamburger"
+      data-nav-toggle
+      aria-expanded="false"
+      aria-controls="mobile-nav-overlay"
+      aria-label="Toggle navigation menu"
+    >
+      <span></span><span></span><span></span>
+    </button>
   </header>
-  <main>
+
+  <aside class="sidebar" aria-label="Primary">
+    <.link navigate={~p"/"} class="sidebar-brand">
+      <span class="dg-monogram" aria-hidden="true">DG</span> Dylan Glover
+    </.link>
+    <nav class="sidebar-nav">
+      <.link class="nav-link" data-nav-link navigate={~p"/"}>Home</.link>
+      <a class="nav-link" href="/#about">About</a>
+      <a class="nav-link" href="/#projects">Projects</a>
+      <a class="nav-link" href="/#resume">Resume</a>
+      <.link class="nav-link" data-nav-link navigate={~p"/docs"}>DylanDocs</.link>
+      <.link class="nav-link" data-nav-link navigate={~p"/support"}>DylanSupport</.link>
+    </nav>
+  </aside>
+
+  <div id="mobile-nav-overlay" class="mobile-overlay" data-nav-overlay data-state="closed">
+    <div class="mobile-overlay-header">
+      <button type="button" class="hamburger nav-close" data-nav-close aria-label="Close navigation menu">
+        ✕
+      </button>
+    </div>
+    <nav class="mobile-overlay-nav" aria-label="Mobile primary">
+      <.link data-nav-link navigate={~p"/"}>Home</.link>
+      <a href="/#about">About</a>
+      <a href="/#projects">Projects</a>
+      <a href="/#resume">Resume</a>
+      <.link data-nav-link navigate={~p"/docs"}>DylanDocs</.link>
+      <.link data-nav-link navigate={~p"/support"}>DylanSupport</.link>
+    </nav>
+  </div>
+
+  <main class="app-main">
     <p :if={Phoenix.Flash.get(@flash, :info)} class="flash">{Phoenix.Flash.get(@flash, :info)}</p>
     {@inner_content}
   </main>
+
+  <button type="button" class="widget-fab" disabled aria-label="DylanBot chat — coming soon">
+    💬
+  </button>
 </div>

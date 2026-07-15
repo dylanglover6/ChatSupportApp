@@ -16,7 +16,7 @@ defmodule SupportBotWeb.KBLive.Index do
       <p class="muted">These local Markdown articles power SupportBot keyword retrieval.</p>
       <div class="grid">
         <article :for={article <- @articles} class="card">
-          <h3><.link navigate={~p"/kb/#{article.slug}"}>{article.title}</.link></h3>
+          <h3><.link navigate={~p"/docs/#{article.slug}"}>{article.title}</.link></h3>
           <p><code>{article.path}</code></p>
           <p>{article.body |> String.split("\n\n") |> Enum.at(1) |> String.slice(0, 260)}</p>
         </article>
