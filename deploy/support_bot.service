@@ -1,0 +1,19 @@
+[Unit]
+Description=Dylan Glover portfolio platform (Phoenix release)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=support_bot
+Group=support_bot
+WorkingDirectory=/opt/support_bot/current
+EnvironmentFile=/opt/support_bot/.env
+ExecStart=/opt/support_bot/current/bin/support_bot start
+ExecStop=/opt/support_bot/current/bin/support_bot stop
+Restart=on-failure
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
