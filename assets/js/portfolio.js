@@ -108,6 +108,60 @@ function runScrambleReveal(letters, onComplete) {
   }, totalDuration + SCRAMBLE_TICK_MS)
 }
 
+function initScrollScramble(letters) {
+  const hero = document.getElementById("hero")
+  if (!hero) return
+
+  let visible = true
+  let scrambleTimer = null
+
+  function startScrambling() {
+    if (scrambleTimer) return
+    letters.forEach((letter) => {
+      letter.el.classList.remove("is-resolved")
+      letter.el.classList.add("is-scrambled")
+    })
+    scrambleTimer = setInterval(() => {
+      letters.forEach((letter) => {
+        letter.el.textContent = randomBinary()
+      })
+    }, SCRAMBLE_TICK_MS)
+  }
+
+  function stopScrambling() {
+    if (!scrambleTimer) return
+    clearInterval(scrambleTimer)
+    scrambleTimer = null
+
+    let cursor = 0
+    letters.forEach((letter) => {
+      cursor += STAGGER_MIN_MS + Math.random() * (STAGGER_MAX_MS - STAGGER_MIN_MS)
+      setTimeout(() => {
+        letter.el.textContent = letter.char
+        letter.el.classList.remove("is-scrambled")
+        letter.el.classList.add("is-resolved")
+      }, cursor)
+    })
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && !visible) {
+          visible = true
+          stopScrambling()
+        } else if (!entry.isIntersecting && visible) {
+          visible = false
+          startScrambling()
+        }
+      })
+    },
+    { threshold: 0 },
+  )
+
+  observer.observe(hero)
+}
+
 function triggerWhipGlitch(letter) {
   letter.glitching = true
   const trueChar = letter.char
@@ -433,6 +487,7 @@ function initHero() {
     runScrambleReveal(letters, () => {
       initPhysics(headline, letters, isMobileMode())
       runCursorSequence(headline, subline)
+      initScrollScramble(letters)
     })
     initParallax(hero)
   }

@@ -79,15 +79,6 @@ body {
   line-height: 1.6;
 }
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(ellipse 900px 600px at 50% -10%, var(--bg-glow), transparent 70%);
-}
-
 ::selection {
   background: var(--accent);
   color: var(--bg);
@@ -627,6 +618,14 @@ textarea { min-height: 96px; resize: vertical; }
   align-items: center;
   justify-content: center;
   will-change: transform;
+}
+
+.hero-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 900px 600px at 50% -10%, var(--bg-glow), transparent 70%);
 }
 
 .hero-bg-grid {
