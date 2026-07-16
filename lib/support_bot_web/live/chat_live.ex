@@ -164,6 +164,7 @@ defmodule SupportBotWeb.ChatLive do
             name="message"
             value={@message}
             placeholder={if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot something..."}
+            aria-label="Message"
             autocomplete="off"
           />
           <button class="primary" type="submit">Send</button>
@@ -187,17 +188,17 @@ defmodule SupportBotWeb.ChatLive do
         <.link class="button primary" navigate={~p"/support/#{@created_ticket.id}"}>View Ticket</.link>
       </section>
 
-      <div :if={@show_ticket_form} class="modal-backdrop">
+      <div :if={@show_ticket_form} class="modal-backdrop" phx-window-keydown="hide_ticket_form" phx-key="Escape">
         <section class="modal" phx-click-away="hide_ticket_form">
           <div class="section-heading">
             <h2>Create Ticket</h2>
             <button type="button" class="icon-button" phx-click="hide_ticket_form">Close</button>
           </div>
           <form phx-submit="create_ticket">
-            <input name="ticket[customer_name]" placeholder="Customer name" required />
-            <input name="ticket[customer_email]" type="email" placeholder="Customer email" required />
-            <input name="ticket[title]" placeholder="Issue title" required />
-            <textarea name="ticket[details]" placeholder="Optional additional details"></textarea>
+            <input name="ticket[customer_name]" placeholder="Customer name" aria-label="Customer name" required />
+            <input name="ticket[customer_email]" type="email" placeholder="Customer email" aria-label="Customer email" required />
+            <input name="ticket[title]" placeholder="Issue title" aria-label="Issue title" required />
+            <textarea name="ticket[details]" placeholder="Optional additional details" aria-label="Additional details"></textarea>
             <button class="primary" type="submit">Create Ticket</button>
           </form>
         </section>

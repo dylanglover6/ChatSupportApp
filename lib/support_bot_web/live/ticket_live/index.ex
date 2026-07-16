@@ -60,24 +60,24 @@ defmodule SupportBotWeb.TicketLive.Index do
               <td colspan="8" class="muted">No tickets yet. Create one from the chat widget.</td>
             </tr>
             <tr :for={ticket <- @tickets} class={ticket.urgent && "is-urgent-row"}>
-              <td>
+              <td data-label="Ticket">
                 <span :if={ticket.urgent} class="badge badge-urgent-pin">URGENT</span>
                 <.link navigate={~p"/support/#{ticket.id}"}>{ticket.title}</.link>
               </td>
-              <td>{ticket.customer_email}</td>
-              <td>
+              <td data-label="Customer">{ticket.customer_email}</td>
+              <td data-label="Category">
                 <.badge>{ticket.category}</.badge>
               </td>
-              <td>
+              <td data-label="Level">
                 <.badge kind="level">L{ticket.support_level}</.badge>
               </td>
-              <td>
+              <td data-label="Priority">
                 <.badge kind={String.downcase(ticket.priority)}>{ticket.priority}</.badge>
               </td>
-              <td>
+              <td data-label="Status">
                 <.badge kind={status_kind(ticket.status)}>{ticket.status}</.badge>
               </td>
-              <td>
+              <td data-label="Assigned">
                 <span :if={ticket.assigned_agent} class="agent-chip">
                   <.badge kind={String.downcase(ticket.assigned_agent.color)}>
                     {ticket.assigned_agent.name}
@@ -85,7 +85,7 @@ defmodule SupportBotWeb.TicketLive.Index do
                   <span class="expertise-dots small">{expertise_dots(ticket.assigned_agent.expertise_level)}</span>
                 </span>
               </td>
-              <td class="muted">{age(ticket.inserted_at)}</td>
+              <td data-label="Age" class="muted">{age(ticket.inserted_at)}</td>
             </tr>
           </tbody>
         </table>

@@ -221,7 +221,7 @@ defmodule SupportBotWeb.TicketLive.Show do
               </div>
             </div>
             <form phx-submit="send_agent_chat" class="widget-input-row">
-              <input name="message" value={@chat_draft} placeholder="Type a live reply..." autocomplete="off" />
+              <input name="message" value={@chat_draft} placeholder="Type a live reply..." aria-label="Live reply" autocomplete="off" />
               <button type="submit">Send</button>
             </form>
             <button type="button" phx-click="hand_back">Hand Back to Bot</button>
@@ -231,8 +231,8 @@ defmodule SupportBotWeb.TicketLive.Show do
         <section class="panel">
           <h2>Agent Composer</h2>
           <form phx-submit="save_reply">
-            <input name="reply[author_name]" value={agent_name(@ticket)} />
-            <textarea name="reply[body]" placeholder="Write an internal note..." required></textarea>
+            <input name="reply[author_name]" value={agent_name(@ticket)} aria-label="Author name" />
+            <textarea name="reply[body]" placeholder="Write an internal note..." aria-label="Internal note" required></textarea>
             <button class="primary" type="submit">Save Internal Note</button>
           </form>
           <button type="button" phx-click="show_email_form">Send Email (Simulated)</button>
@@ -246,16 +246,16 @@ defmodule SupportBotWeb.TicketLive.Show do
         </section>
       </aside>
 
-      <div :if={@show_email_form} class="modal-backdrop">
+      <div :if={@show_email_form} class="modal-backdrop" phx-window-keydown="hide_email_form" phx-key="Escape">
         <section class="modal" phx-click-away="hide_email_form">
           <div class="section-heading">
             <h2>Send Email (Simulated)</h2>
             <button type="button" class="icon-button" phx-click="hide_email_form">Close</button>
           </div>
           <form phx-submit="send_email">
-            <input name="email[to]" value={@ticket.customer_email} placeholder="To" required />
-            <input name="email[subject]" value={"Re: #{@ticket.title}"} placeholder="Subject" required />
-            <textarea name="email[body]" placeholder="Email body..." required></textarea>
+            <input name="email[to]" value={@ticket.customer_email} placeholder="To" aria-label="To" required />
+            <input name="email[subject]" value={"Re: #{@ticket.title}"} placeholder="Subject" aria-label="Subject" required />
+            <textarea name="email[body]" placeholder="Email body..." aria-label="Email body" required></textarea>
             <button class="primary" type="submit">Send Simulated Email</button>
           </form>
         </section>

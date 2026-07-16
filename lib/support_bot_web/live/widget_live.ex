@@ -59,6 +59,14 @@ defmodule SupportBotWeb.WidgetLive do
     {:noreply, assign(socket, :open, open)}
   end
 
+  def handle_event("close_on_escape", _params, socket) do
+    if socket.assigns.show_escalation_form do
+      {:noreply, assign(socket, :show_escalation_form, false)}
+    else
+      {:noreply, assign(socket, :open, false)}
+    end
+  end
+
   def handle_event("path_changed", %{"path" => path}, socket) do
     {:noreply,
      socket
@@ -144,7 +152,7 @@ defmodule SupportBotWeb.WidgetLive do
         </span>
       </button>
 
-      <section :if={@open} class="widget-panel">
+      <section :if={@open} class="widget-panel" phx-window-keydown="close_on_escape" phx-key="Escape">
         <header class="widget-header">
           <span class="widget-title">
             {if @agent_active, do: String.upcase(@active_agent_name || "AGENT"), else: "DYLANBOT"}
@@ -204,9 +212,9 @@ defmodule SupportBotWeb.WidgetLive do
 
         <div :if={@show_escalation_form} class="widget-escalation-form">
           <form phx-submit="create_ticket">
-            <input name="ticket[customer_name]" placeholder="Your name" required />
-            <input name="ticket[customer_email]" type="email" placeholder="Your email" required />
-            <input name="ticket[title]" placeholder="What's this about?" required />
+            <input name="ticket[customer_name]" placeholder="Your name" aria-label="Your name" required />
+            <input name="ticket[customer_email]" type="email" placeholder="Your email" aria-label="Your email" required />
+            <input name="ticket[title]" placeholder="What's this about?" aria-label="What's this about?" required />
             <div class="widget-escalation-actions">
               <button type="button" class="icon-button" phx-click="hide_escalation_form">Cancel</button>
               <button class="primary" type="submit">Leave Message</button>
@@ -219,6 +227,7 @@ defmodule SupportBotWeb.WidgetLive do
             name="message"
             value={@message}
             placeholder={if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot..."}
+            aria-label="Message"
             autocomplete="off"
           />
           <button type="submit">Send</button>

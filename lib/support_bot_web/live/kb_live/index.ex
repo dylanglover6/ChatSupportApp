@@ -45,6 +45,7 @@ defmodule SupportBotWeb.KBLive.Index do
             name="q"
             value={@search_query}
             placeholder="Search DylanDocs..."
+            aria-label="Search DylanDocs"
             autocomplete="off"
           />
         </form>

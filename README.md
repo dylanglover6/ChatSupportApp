@@ -1,132 +1,176 @@
-# SupportBot
+# Dylan Glover — Portfolio Platform
 
-SupportBot is a Phoenix/Elixir portfolio MVP for an AI-powered FlowDesk support operations platform.
+This is Dylan Glover's personal portfolio site **and** the flagship project it showcases,
+served from one Phoenix/LiveView application. Visitors land on a dark, pixel-accented
+portfolio page, browse **DylanDocs** (documentation about Dylan — skills, projects, career,
+personal), chat with **DylanBot** (a page-aware assistant grounded in those docs) from any
+page, and — behind the scenes — **DylanSupport** is a working mock support-desk that
+triages, classifies, and assigns whatever DylanBot can't resolve to a mock agent, live.
 
-The app demonstrates a complete support triage workflow:
+The interesting part: the support desk isn't a mockup bolted on for show. It's a real
+Phoenix/LiveView/PubSub system — local keyword search standing in for RAG, a local Ollama
+model with a deterministic fallback, rule-based ticket classification and routing, and a
+live chat takeover between an agent view and a visitor's chat widget over two browser
+windows. It's both a portfolio page and a demo of how Dylan builds things.
 
-- Customer chats with an AI troubleshooting assistant.
-- The assistant searches local Markdown knowledge base articles.
-- The customer can create a structured support ticket from the chat.
-- The app classifies category and priority.
-- The ticket is assigned to a mock support agent based on shift availability, specialty, workload, and team color.
-- A manager dashboard shows agent availability, open tickets, and recent activity.
-- Ticket detail pages show the chatbot history, AI summaries, KB sources, timeline, customer replies, and internal notes.
+## What's here
 
-## Tech Stack
+| Surface | Route | What it is |
+|---|---|---|
+| Portfolio landing | `/` | Hero, about/skills, projects, resume link, DylanDocs teaser, contact |
+| DylanDocs | `/docs`, `/docs/:slug` | Docs about Dylan — skills, projects, career, personal, meta — rendered from Markdown with real frontmatter, categories, and search |
+| DylanBot | every page (floating widget) + `/chat` | Page-aware chat assistant grounded in DylanDocs, backed by a local Ollama model with an offline fallback |
+| DylanSupport | `/support`, `/support/:id` | The mock agent desk: ticket queue, agent roster, auto-classification/assignment, ticket lifecycle, simulated outbound email, and live chat takeover |
 
-- Elixir
-- Phoenix
-- Phoenix LiveView
-- PostgreSQL
-- Ecto
-- Local Markdown knowledge base files
-- Ollama local AI API, with a deterministic fallback response when Ollama is not running
+`/kb` and `/tickets` (the app's original FlowDesk-era routes) permanently redirect to
+`/docs` and `/support`.
+
+## Architecture
+
+One Phoenix app, four Ecto-backed contexts under `lib/support_bot/`, wired together by
+`Tickets`:
+
+```
+                      ┌────────────────────┐
+  visitor ── chats ──▶│   Chat / WidgetLive │◀── page-aware context ── PageContext
+                      │   & ChatLive        │
+                      └─────────┬───────────┘
+                                │ persists messages, broadcasts over
+                                │ Phoenix PubSub ("conversation:<id>")
+                                ▼
+   priv/kb/*.md ──▶ KB.Loader/Search ──▶ AI.Client (Ollama, or fallback)
+                                │
+                                │ visitor escalates ("leave a message")
+                                ▼
+                      ┌────────────────────┐
+                      │      Tickets        │── classifies (category, priority,
+                      │  (orchestration)     │   support level 1–3, urgent)
+                      └─────────┬───────────┘
+                                │ Assignment.assign/4 — expertise level,
+                                │ specialty, workload, shift
+                                ▼
+                      ┌────────────────────┐
+                      │       Agents         │  mock agents: shift, specialties,
+                      └────────────────────┘  color, expertise level (L1–L3)
+
+  DylanSupport agent view (TicketLive.Show) ◀── same PubSub topic ──▶ visitor's widget
+  "Take Over Chat" silences DylanBot; "Hand Back to Bot" resumes it.
+```
+
+- **`SupportBot.KB`** — reads Markdown from `priv/kb/` at runtime (frontmatter: title,
+  slug, category, order, summary), renders it with `mdex`, and does keyword search. No
+  embeddings or vector DB — an intentionally simple RAG-style story.
+- **`SupportBot.Chat`** — conversations and messages (`user`/`assistant`/`agent`/`system`
+  roles), plus the Phoenix PubSub plumbing (`subscribe/1`, and a broadcast on every
+  `add_message/4`) that powers live chat takeover.
+- **`SupportBot.AI`** — the single boundary for all model calls: `chat/4` (Ollama, with a
+  deterministic fallback when it's unreachable), `summarize_ticket/3`, `agent_assist/2`,
+  and rule-based `detect_category/1`, `detect_priority/1`, `detect_support_level/1`.
+- **`SupportBot.Agents`** — mock agents with `specialties`, `expertise_level` (1–3),
+  `color`, and a shift window that handles overnight (cross-midnight) shifts.
+- **`SupportBot.Tickets`** — ticket lifecycle (`New → Open → Resolved → Closed`, with
+  auto-reopen on a new customer message), `Assignment.assign/4` (urgent tickets always
+  route to an expertise-level-3 agent; otherwise the most qualified, least-loaded,
+  on-shift specialist), simulated email, and the takeover handlers.
 
 ## Setup
 
-Install Elixir/Erlang, PostgreSQL, and Node.js. On Windows, the official Elixir installer is the most reliable path:
+Requires Elixir/Erlang, PostgreSQL, and Node.js.
 
-```powershell
-elixir --version
-mix --version
-mix local.hex
-mix archive.install hex phx_new
+```bash
+mix setup        # deps, assets, db create + migrate + seed
+mix phx.server    # http://localhost:4000
 ```
 
-Install and set up the app:
+`mix setup` seeds four mock agents (with expertise levels and shift windows) and six
+believable tickets spanning every status and level — including one urgent ticket already
+routed to a level-3 agent — plus a sample DylanBot conversation, so the demo below works
+immediately on a fresh clone.
 
-```powershell
-mix setup
+Default dev DB credentials are in `config/dev.exs` (`postgres`/`postgres`,
+`support_bot_dev`) — adjust if your local Postgres differs.
+
+### Local AI (optional but recommended)
+
+DylanBot calls a local [Ollama](https://ollama.com) instance:
+
+```bash
+ollama serve &
+ollama pull llama3.2
+```
+
+Override the model with `OLLAMA_MODEL`. **Ollama is optional** — if it's unreachable,
+`AI.Client` falls through to a deterministic, still-Dylan-flavored response, and the
+widget's status dot switches from green to amber so it's obvious you're in fallback mode.
+Nothing else in the demo depends on Ollama being up.
+
+### Verify a change
+
+```bash
+mix compile --warnings-as-errors
+mix test
 mix phx.server
 ```
 
-Visit:
+## Demo script
 
-```text
-http://localhost:4000
-```
+The guided path, in one browser unless noted:
 
-The default database settings are in `config/dev.exs`:
+1. **Landing (`/`)** — scroll through the hero, about/skills, and projects sections.
+2. **DylanDocs (`/docs`)** — browse the category tree, try the search box.
+3. **Ask DylanBot** — open the widget (bottom-right, any page). Ask "what are Dylan's
+   skills?" — the answer is grounded in DylanDocs with a real `/docs/:slug` link. Ask
+   "what can I do on this page?" on a couple of different routes — the answer changes
+   because the bot is page-aware.
+4. **Escalate to a ticket** — ask something DylanBot can't answer, or click "Leave a
+   message for Dylan" in the widget. Fill in the mini form; a ticket is created,
+   auto-classified (category, priority, support level 1–3), and auto-assigned to a mock
+   agent.
+5. **DylanSupport (`/support`)** — see the new ticket in the queue (urgent tickets pin to
+   the top with a red badge), the agent roster with expertise-level dots, and the recent
+   activity feed. Open the ticket (`/support/:id`) for the full picture: AI summary, the
+   unified history timeline, status controls, and a manual reassign dropdown.
+6. **Live chat takeover — the flagship demo.** Open a **second browser window** (or an
+   incognito tab) to the widget or `/chat` as "the visitor," keeping the same conversation
+   going from step 3–4. On the ticket page (first window), click **"Take Over Chat."** The
+   visitor's widget shows a system line ("`<Agent>` from DylanSupport joined the chat") and
+   DylanBot stops auto-responding. Type in the ticket page's live chat box — it appears in
+   the visitor's widget in real time over Phoenix PubSub, and vice versa. Click **"Hand
+   Back to Bot"** to end the takeover; DylanBot resumes.
+7. **Simulated email** — back on the ticket page, "Send Email (Simulated)" opens a
+   composer; sending it writes a `SIMULATED — NOT DELIVERED` timeline card and resolves
+   the ticket. No SMTP dependency exists in this app — that's a hard constraint, not a gap.
 
-```text
-username: postgres
-password: postgres
-database: support_bot_dev
-```
+## Design system — "Dark Arcade"
 
-Adjust those values if your local PostgreSQL user is different.
+Every color is a CSS custom property in `priv/static/assets/app.css` (`--bg`, `--accent`
+yellow, `--ok`/`--warn`/`--danger`/`--info`/`--purple` status colors) — nothing is
+hardcoded in a template. Square corners everywhere except the widget FAB, 2px borders,
+hard pixel text-shadows on headings, a subtle scanline/CRT-glow overlay, and a blinking
+block cursor on the hero and widget input. Display type is **Press Start 2P** (headings,
+badges, nav), **VT323** for larger stylized/terminal text, and **Inter** for all body copy
+and docs content — pixel fonts are decoration, never body copy. All motion respects
+`prefers-reduced-motion`.
 
-## Ollama
+## MVP constraints (intentional, not gaps)
 
-SupportBot calls Ollama at:
-
-```text
-http://localhost:11434/api/chat
-```
-
-The model defaults to:
-
-```text
-llama3.2
-```
-
-Override it with:
-
-```powershell
-$env:OLLAMA_MODEL="llama3.2"
-```
-
-If Ollama is not running, the app still works with a local fallback response so the portfolio flow can be demonstrated.
-
-## Knowledge Base Search
-
-The local KB lives in `priv/kb/`. `SupportBot.KB.Loader` reads Markdown files and extracts article metadata. `SupportBot.KB.Search` tokenizes the customer message, scores article titles and bodies with keyword matches, and returns the top snippets as chat context.
-
-This is intentionally simple for the MVP. It tells a RAG-style story without adding embeddings, a vector database, or external search infrastructure.
-
-## Agent Assignment
-
-Mock agents are seeded in `priv/repo/seeds.exs`. Assignment considers:
-
-- Current shift availability
-- Category specialty match
-- Current open ticket count
-- Team color designation
-
-If no agent is in office, the app assigns the ticket to the agent whose shift starts soonest and marks the ticket as `Waiting for Agent`.
-
-## Example Questions
-
-Try these in the chat:
-
-```text
-Customer gets SAML audience mismatch from Okta. What should I check?
-API returns 401 even though the token worked yesterday.
-Webhook events are delayed and retries are not arriving.
-A user was invited to a workspace but cannot access it.
-A customer cannot upload a file larger than 100MB.
-```
+No real authentication, no real email sending (simulated replies write a labeled timeline
+entry — see `Tickets.add_reply/2`; **no mailer/SMTP dependency is ever added**), no
+embeddings/vector DB, no complex SLA rules, no hosting/deployment setup. The AI client
+sits behind one module boundary (`SupportBot.AI.Client`) so swapping to a hosted model
+provider later is a config change, not a rewrite.
 
 ## Routes
 
 ```text
-/chat
-/tickets
-/tickets/:id
-/kb
-/kb/:slug
+/                   portfolio landing
+/docs               DylanDocs index (category tree, search)
+/docs/:slug         a single doc
+/chat               full-page DylanBot chat
+/support            DylanSupport ticket queue + agent roster
+/support/:id        ticket workspace
+/resume.pdf         resume download
+
+/kb, /kb/:slug      → redirect to /docs, /docs/:slug
+/tickets, /tickets/:id → redirect to /support, /support/:id
 ```
-
-## Future Improvements
-
-- Vector search with embeddings
-- Admin UI for editing KB articles
-- Streaming model responses
-- User authentication
-- Real email notifications
-- Customer ticket status page
-- Manual ticket reassignment
-- SLA timers
-- Agent workload charts
-- OpenAI or Anthropic provider option
-- Deployment instructions
