@@ -13,5 +13,10 @@
   </head>
   <body>
     {@inner_content}
+    {live_render(@conn, SupportBotWeb.WidgetLive,
+      id: "dylanbot-widget-live",
+      session: %{"path" => @conn.request_path},
+      sticky: true
+    )}
   </body>
 </html>

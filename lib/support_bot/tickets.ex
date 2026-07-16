@@ -34,7 +34,7 @@ defmodule SupportBot.Tickets do
 
     ticket_attrs =
       attrs
-      |> Map.merge(summary)
+      |> Map.merge(Map.new(summary, fn {key, value} -> {Atom.to_string(key), value} end))
       |> Map.merge(%{
         "conversation_id" => conversation_id,
         "status" => status,

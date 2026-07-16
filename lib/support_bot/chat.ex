@@ -17,7 +17,7 @@ defmodule SupportBot.Chat do
     |> Repo.one()
   end
 
-  def latest_or_create_conversation(title \\ "FlowDesk support chat") do
+  def latest_or_create_conversation(title \\ "Support chat") do
     latest_conversation() || create_conversation(title)
   end
 

@@ -1,60 +1,78 @@
 defmodule SupportBot.AI.Client do
   @moduledoc "Ollama chat client with a deterministic fallback for demos."
 
-  alias SupportBot.AI.Prompts
+  alias SupportBot.AI.{PageContext, Prompts}
 
-  def chat(user_message, history, kb_snippets, task_type \\ "troubleshooting") do
+  @doc """
+  Sends a chat turn to the local Ollama model, grounded in DylanDocs snippets and
+  the visitor's current page. Returns `{content, status}` where `status` is
+  `:ollama` or `:fallback`, so callers can show whether a live model answered.
+  """
+  def chat(user_message, history, doc_snippets, path \\ "/") do
     model = System.get_env("OLLAMA_MODEL", "llama3.2")
 
     messages =
       [
         %{role: "system", content: Prompts.system_prompt()},
-        %{role: "system", content: context_message(kb_snippets, task_type)}
+        %{role: "system", content: context_message(doc_snippets, path)}
       ] ++
         Enum.map(history, &Map.take(&1, [:role, :content])) ++
         [%{role: "user", content: user_message}]
 
     case Req.post("http://localhost:11434/api/chat",
            json: %{model: model, messages: messages, stream: false},
-           receive_timeout: 20_000
+           receive_timeout: 20_000,
+           retry: false
          ) do
-      {:ok, %{status: 200, body: %{"message" => %{"content" => content}}}} -> content
-      _ -> fallback_response(user_message, kb_snippets)
+      {:ok, %{status: 200, body: %{"message" => %{"content" => content}}}} ->
+        {content, :ollama}
+
+      _ ->
+        {fallback_response(user_message, doc_snippets), :fallback}
     end
+  end
+
+  @doc "Quick reachability check for the widget's status dot — not used for the chat call itself."
+  def ollama_reachable? do
+    case Req.get("http://localhost:11434/api/tags", receive_timeout: 1_000, retry: false) do
+      {:ok, %{status: 200}} -> true
+      _ -> false
+    end
+  rescue
+    _ -> false
   end
 
   def summarize_ticket(messages, details, sources) do
     text = Enum.map_join(messages, "\n", &"#{&1.role}: #{&1.content}")
     source_titles = Enum.map_join(sources, ", ", & &1["title"])
+    combined = "#{details["title"]} #{details["details"]}"
 
     %{
       issue_summary: details["title"],
       conversation_summary: String.slice(text, 0, 900),
-      steps_tried: "See chatbot history. The assistant used KB sources: #{source_titles}.",
-      likely_cause: infer_likely_cause(details["title"] <> " " <> details["details"]),
-      missing_information:
-        "Exact timestamps, workspace ID, request IDs, screenshots, and recent configuration changes.",
-      priority: detect_priority(details["title"] <> " " <> details["details"]),
-      category: detect_category(details["title"] <> " " <> details["details"])
+      steps_tried: "See chatbot history. The assistant used DylanDocs sources: #{source_titles}.",
+      likely_cause: infer_likely_cause(combined),
+      missing_information: "The specific question Dylan should follow up on, and the best way to reach the visitor back.",
+      priority: detect_priority(combined),
+      category: detect_category(combined)
     }
   end
 
   def agent_assist(ticket, messages) do
     """
-    Suggested customer reply:
-    Thanks for the details. I reviewed the chatbot history and the #{ticket.category} troubleshooting path. Please send any missing IDs, timestamps, and recent configuration changes so we can verify the next step.
+    Suggested reply:
+    Thanks for reaching out! I looked over the conversation with DylanBot on the #{ticket.category} topic. Let me know if there's anything specific you'd like Dylan to follow up on.
 
-    Suggested next troubleshooting step:
-    Reproduce the issue once, capture the exact error or request ID, and compare it against the relevant FlowDesk KB article.
+    Suggested next step:
+    Skim the chatbot history, then reply directly or leave an internal note for Dylan with any missing context.
 
     Missing information checklist:
-    - Workspace ID
-    - Timestamp and timezone
-    - Error text or request ID
-    - Recent admin or configuration changes
+    - Best way to reach the visitor back
+    - Which DylanDocs page (if any) prompted the question
+    - Anything DylanBot said it didn't know
 
     Escalation summary:
-    Customer reported #{ticket.title}. Conversation contains #{length(messages)} chatbot messages and should be escalated if the issue blocks production usage or requires backend log inspection.
+    Visitor asked about "#{ticket.title}". Conversation contains #{length(messages)} chatbot messages and should be escalated if it needs Dylan's direct, personal input.
     """
   end
 
@@ -83,57 +101,50 @@ defmodule SupportBot.AI.Client do
     end
   end
 
-  defp context_message(snippets, task_type) do
-    context =
-      snippets
-      |> Enum.map_join("\n\n", fn item -> "#{item.title}\n#{item.snippet}" end)
+  defp context_message(snippets, path) do
+    page = PageContext.for_path(path)
 
-    "Task: #{task_type}\nKnowledge base context:\n#{context}"
+    docs =
+      if snippets == [] do
+        "No matching DylanDocs pages were found for this message."
+      else
+        Enum.map_join(snippets, "\n\n", fn item ->
+          "#{item.title} (slug: #{item.slug})\n#{item.snippet}"
+        end)
+      end
+
+    """
+    Current page: #{page.name} — #{page.description}
+    Suggested actions here: #{Enum.join(page.actions, "; ")}
+
+    DylanDocs context:
+    #{docs}
+    """
   end
 
   defp fallback_response(message, []) do
     if vague_help_request?(message) do
       """
-      I can help with FlowDesk issues like SSO login, API tokens, webhooks, permissions, file uploads, or billing.
+      Howdy! I can answer questions about Dylan — his skills, projects, work history, or how this site itself is built.
 
-      What are you trying to do, and what error or unexpected behavior are you seeing?
+      What would you like to know?
       """
     else
       """
-      I do not see a direct match in the FlowDesk knowledge base yet.
+      I don't see a DylanDocs page that covers that yet, and I'd rather not guess.
 
-      Can you share the exact error, the affected workspace or user, and what you were trying to do when it happened?
+      Want to leave a message for Dylan instead? He can follow up directly.
       """
     end
   end
 
-  defp fallback_response(message, snippets) do
+  defp fallback_response(_message, snippets) do
     top = List.first(snippets)
 
-    if detailed_troubleshooting_request?(message) do
-      detailed_fallback(top)
-    else
-      """
-      This sounds like it may relate to #{top.title}.
-
-      A good next step is to share the exact error message, when it happened, and the affected workspace or user. If you want, I can also turn this into a support ticket.
-      """
-    end
-  end
-
-  defp detailed_fallback(top) do
     """
-    1. Likely cause
-    This looks related to #{top.title}. The most likely cause is a configuration mismatch or missing request detail covered by that KB article.
+    This sounds related to [[#{top.slug}]].
 
-    2. Next steps
-    Review the article steps, reproduce the issue, and compare the customer's configuration against the expected FlowDesk settings.
-
-    3. Information to collect
-    Workspace ID, affected user, timestamp, full error text, request ID, and recent configuration changes.
-
-    4. Escalation criteria
-    Escalate if the customer remains blocked after the KB checks or if backend logs are required.
+    Want me to point you to more DylanDocs pages, or would you rather leave a message for Dylan?
     """
   end
 
@@ -144,18 +155,10 @@ defmodule SupportBot.AI.Client do
       |> String.replace(~r/[^a-z0-9\s]/, " ")
       |> String.trim()
 
-    normalized in ["help", "hi", "hello", "hey", "support", "i need help"] or
+    normalized in ["help", "hi", "hello", "hey", "howdy", "i need help"] or
       String.length(normalized) < 12
   end
 
-  defp detailed_troubleshooting_request?(message) do
-    text = String.downcase(message || "")
-
-    String.length(text) > 60 or
-      text =~
-        ~r/error|failing|failed|cannot|can't|unable|401|403|500|saml|webhook|upload|permission|token|api|sso/
-  end
-
   defp infer_likely_cause(text),
-    do: "Likely related to #{detect_category(text)} configuration or request context."
+    do: "Likely a question about #{detect_category(text)} — see the chatbot history for detail."
 end

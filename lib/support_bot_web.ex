@@ -30,6 +30,15 @@ defmodule SupportBotWeb do
     end
   end
 
+  @doc "For sticky child LiveViews rendered inline by the root layout (no app shell/sidebar)."
+  def live_widget do
+    quote do
+      use Phoenix.LiveView, layout: false
+
+      unquote(html_helpers())
+    end
+  end
+
   def html do
     quote do
       use Phoenix.Component

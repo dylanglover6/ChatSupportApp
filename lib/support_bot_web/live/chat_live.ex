@@ -1,12 +1,12 @@
 defmodule SupportBotWeb.ChatLive do
   use SupportBotWeb, :live_view
 
-  alias SupportBot.{AI.Client, Chat, Tickets}
+  alias SupportBot.{AI.Client, AI.DocLinks, Chat, Tickets}
   alias SupportBot.KB.Search
 
   @impl true
   def mount(_params, _session, socket) do
-    conversation = Chat.latest_or_create_conversation("FlowDesk support chat")
+    conversation = Chat.latest_or_create_conversation("Support chat")
     messages = Chat.list_messages(conversation.id)
 
     socket =
@@ -35,7 +35,7 @@ defmodule SupportBotWeb.ChatLive do
       sources = to_source_maps(snippets)
       history = Chat.list_messages(conversation_id)
       user = Chat.add_message(conversation_id, "user", message)
-      response = Client.chat(message, history, snippets)
+      {response, _status} = Client.chat(message, history, snippets, "/chat")
       assistant = Chat.add_message(conversation_id, "assistant", response, sources)
 
       {:noreply,
@@ -63,7 +63,7 @@ defmodule SupportBotWeb.ChatLive do
   end
 
   def handle_event("new_chat", _params, socket) do
-    conversation = Chat.create_conversation("FlowDesk support chat")
+    conversation = Chat.create_conversation("Support chat")
 
     {:noreply,
      socket
@@ -98,18 +98,19 @@ defmodule SupportBotWeb.ChatLive do
     <div class="chat-page">
       <section class="panel chat-panel">
         <div class="section-heading">
-          <h2>Customer Chat</h2>
+          <h2>Chat with DylanBot</h2>
           <div class="header-actions">
-            <button type="button" phx-click="show_ticket_form">Create Support Ticket</button>
+            <button type="button" phx-click="show_ticket_form">Leave a Message for Dylan</button>
             <button type="button" phx-click="new_chat">New Chat</button>
           </div>
         </div>
         <div id="chat-log" class="chat-log" phx-hook="AutoScroll">
           <div :if={@messages == []} class="message assistant">
-            Hi, I can help troubleshoot FlowDesk SSO, API, webhook, permissions, and file upload issues.
+            Howdy! Ask me about Dylan's skills, projects, or how this platform is built —
+            or just say hi and I'll take it from there.
           </div>
           <div :for={message <- @messages} class={"message #{message.role}"}>
-            {message.content}
+            {if message.role == "assistant", do: DocLinks.render(message.content), else: message.content}
             <div :if={message.sources != []} class="sources">
               <.link
                 :for={source <- message.sources}
@@ -128,7 +129,7 @@ defmodule SupportBotWeb.ChatLive do
           <input
             name="message"
             value={@message}
-            placeholder="Describe the FlowDesk issue..."
+            placeholder="Ask DylanBot something..."
             autocomplete="off"
           />
           <button class="primary" type="submit">Send</button>

@@ -19,6 +19,20 @@ Hooks.AutoScroll = {
   }
 }
 
+Hooks.WidgetPath = {
+  mounted() {
+    this.report()
+    this.reportOnNavigate = () => this.report()
+    window.addEventListener("phx:page-loading-stop", this.reportOnNavigate)
+  },
+  destroyed() {
+    window.removeEventListener("phx:page-loading-stop", this.reportOnNavigate)
+  },
+  report() {
+    this.pushEvent("path_changed", { path: window.location.pathname })
+  }
+}
+
 let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   hooks: Hooks,
