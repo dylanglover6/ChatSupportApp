@@ -7,16 +7,9 @@
     live: nil
   },
   %{
-    name: "TODO(dylan): Project Name",
-    tagline: "TODO(dylan): one-line description of what this project does.",
-    stack: ["TODO(dylan)"],
-    github: nil,
-    live: nil
-  },
-  %{
-    name: "TODO(dylan): Project Name",
-    tagline: "TODO(dylan): one-line description of what this project does.",
-    stack: ["TODO(dylan)"],
+    name: "Plot Twist",
+    tagline: "A surprise-invitation web app — animated reveals, expiring share links, and calendar integration.",
+    stack: ["React", "Node/Express", "MongoDB"],
     github: nil,
     live: nil
   }
