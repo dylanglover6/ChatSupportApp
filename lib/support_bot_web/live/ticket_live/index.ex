@@ -3,18 +3,21 @@ defmodule SupportBotWeb.TicketLive.Index do
 
   alias SupportBot.{Agents, Tickets}
   alias SupportBot.Agents.Schedule
+  alias SupportBotWeb.RateLimit
 
   @impl true
-  def mount(_params, _session, socket) do
-    {:ok, load(socket)}
+  def mount(_params, session, socket) do
+    {:ok, load(assign(socket, :visitor_id, RateLimit.visitor_id(session)))}
   end
 
   defp load(socket) do
+    visitor_id = socket.assigns.visitor_id
+
     socket
     |> assign(:page_title, "DylanSupport")
     |> assign(:agents, Agents.list_agents())
-    |> assign(:tickets, Tickets.list_tickets())
-    |> assign(:events, Tickets.recent_events())
+    |> assign(:tickets, Tickets.list_tickets(visitor_id))
+    |> assign(:events, Tickets.recent_events(visitor_id))
   end
 
   @impl true
@@ -82,7 +85,9 @@ defmodule SupportBotWeb.TicketLive.Index do
                   <.badge kind={String.downcase(ticket.assigned_agent.color)}>
                     {ticket.assigned_agent.name}
                   </.badge>
-                  <span class="expertise-dots small">{expertise_dots(ticket.assigned_agent.expertise_level)}</span>
+                  <span class="expertise-dots small">{expertise_dots(
+                    ticket.assigned_agent.expertise_level
+                  )}</span>
                 </span>
               </td>
               <td data-label="Age" class="muted">{age(ticket.inserted_at)}</td>

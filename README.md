@@ -130,13 +130,17 @@ The guided path, in one browser unless noted:
    the top with a red badge), the agent roster with expertise-level dots, and the recent
    activity feed. Open the ticket (`/support/:id`) for the full picture: AI summary, the
    unified history timeline, status controls, and a manual reassign dropdown.
-6. **Live chat takeover — the flagship demo.** Open a **second browser window** (or an
-   incognito tab) to the widget or `/chat` as "the visitor," keeping the same conversation
-   going from step 3–4. On the ticket page (first window), click **"Take Over Chat."** The
-   visitor's widget shows a system line ("`<Agent>` from DylanSupport joined the chat") and
-   DylanBot stops auto-responding. Type in the ticket page's live chat box — it appears in
-   the visitor's widget in real time over Phoenix PubSub, and vice versa. Click **"Hand
-   Back to Bot"** to end the takeover; DylanBot resumes.
+   *Privacy note:* the desk is public, but each visitor only sees the mock/seed tickets
+   plus the tickets they themselves created — never another visitor's tickets or email.
+6. **Live chat takeover — the flagship demo.** Open a **second browser window in the same
+   browser session** (a normal new window/tab, *not* incognito — visibility is
+   session-scoped, so your agent desk must share the session that created the ticket) to
+   the widget or `/chat` as "the visitor," keeping the conversation from step 3–4 going. On
+   the ticket page (first window), click **"Take Over Chat."** The visitor's widget shows a
+   system line ("`<Agent>` from DylanSupport joined the chat") and DylanBot stops
+   auto-responding. Type in the ticket page's live chat box — it appears in the visitor's
+   widget in real time over Phoenix PubSub, and vice versa. Click **"Hand Back to Bot"** to
+   end the takeover; DylanBot resumes.
 7. **Simulated email** — back on the ticket page, "Send Email (Simulated)" opens a
    composer; sending it writes a `SIMULATED — NOT DELIVERED` timeline card and resolves
    the ticket. No SMTP dependency exists in this app — that's a hard constraint, not a gap.

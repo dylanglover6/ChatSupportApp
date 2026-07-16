@@ -15,8 +15,12 @@ defmodule SupportBotWeb.RateLimit do
   session id alone still throttles per-browser if no IP is available.
   """
   def actor(socket, session) do
-    visitor = Map.get(session, "visitor_id") || Map.get(session, :visitor_id) || "anon"
-    "#{visitor}|#{client_ip(socket)}"
+    "#{visitor_id(session)}|#{client_ip(socket)}"
+  end
+
+  @doc "The stable per-session visitor id (stamped by the router's `put_visitor_id` plug)."
+  def visitor_id(session) do
+    Map.get(session, "visitor_id") || Map.get(session, :visitor_id) || "anon"
   end
 
   @doc "Registers a hit for `action`; see `SupportBot.RateLimiter.check/2`."

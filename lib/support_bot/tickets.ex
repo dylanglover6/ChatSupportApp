@@ -7,15 +7,23 @@ defmodule SupportBot.Tickets do
   alias SupportBot.Repo
   alias SupportBot.Tickets.{Assignment, Ticket, TicketEvent, TicketReply}
 
-  def list_tickets do
+  @doc """
+  Tickets visible to `visitor_id`: the seed/mock tickets (no visitor_id) plus the
+  ones this visitor created. Keeps one visitor from seeing another's tickets — and
+  their customer emails — on the public DylanSupport desk.
+  """
+  def list_tickets(visitor_id) do
     Ticket
+    |> visible_to(visitor_id)
     |> order_by([t], desc: t.urgent, desc: t.inserted_at)
     |> preload(:assigned_agent)
     |> Repo.all()
   end
 
-  def recent_events(limit \\ 8) do
+  def recent_events(visitor_id, limit \\ 8) do
     TicketEvent
+    |> join(:inner, [e], t in assoc(e, :ticket))
+    |> where([_e, t], is_nil(t.visitor_id) or t.visitor_id == ^visitor_id)
     |> order_by([e], desc: e.inserted_at)
     |> limit(^limit)
     |> preload(:ticket)
@@ -28,10 +36,31 @@ defmodule SupportBot.Tickets do
     |> Repo.preload([:assigned_agent, :events, :replies, conversation: :messages])
   end
 
+  @doc "Loads a ticket only if it's visible to `visitor_id` (own or mock); else nil."
+  def get_visible_ticket(id, visitor_id) do
+    Ticket
+    |> visible_to(visitor_id)
+    |> Repo.get(id)
+    |> case do
+      nil ->
+        nil
+
+      ticket ->
+        Repo.preload(ticket, [:assigned_agent, :events, :replies, conversation: :messages])
+    end
+  end
+
+  defp visible_to(query, visitor_id) do
+    from t in query, where: is_nil(t.visitor_id) or t.visitor_id == ^visitor_id
+  end
+
   def create_from_conversation(conversation_id, attrs, sources) do
     messages = Chat.list_messages(conversation_id)
+    conversation = Chat.get_conversation!(conversation_id)
     summary = Client.summarize_ticket(messages, attrs, sources)
-    {agent, status, off_shift?, reason} = Assignment.assign(summary.category, summary.support_level, summary.urgent)
+
+    {agent, status, off_shift?, reason} =
+      Assignment.assign(summary.category, summary.support_level, summary.urgent)
 
     ticket_attrs =
       attrs
@@ -41,7 +70,8 @@ defmodule SupportBot.Tickets do
         "status" => status,
         "assigned_agent_id" => agent.id,
         "assignment_reason" => reason,
-        "kb_sources" => sources
+        "kb_sources" => sources,
+        "visitor_id" => conversation.visitor_id
       })
 
     Repo.transaction(fn ->
@@ -80,7 +110,12 @@ defmodule SupportBot.Tickets do
           add_event(ticket_id, "note_added", "Internal note saved.")
 
         "email" ->
-          add_event(ticket_id, "email_sent", "Simulated email sent to #{reply.email_to} — SIMULATED, not delivered.")
+          add_event(
+            ticket_id,
+            "email_sent",
+            "Simulated email sent to #{reply.email_to} — SIMULATED, not delivered."
+          )
+
           do_resolve(ticket)
 
         "chat" ->
@@ -166,10 +201,18 @@ defmodule SupportBot.Tickets do
 
   def take_over_chat(ticket_id) do
     ticket = get_ticket!(ticket_id)
-    agent_name = if ticket.assigned_agent, do: ticket.assigned_agent.name, else: "A DylanSupport agent"
+
+    agent_name =
+      if ticket.assigned_agent, do: ticket.assigned_agent.name, else: "A DylanSupport agent"
 
     Chat.set_agent_active(ticket.conversation_id, true, agent_name)
-    Chat.add_message(ticket.conversation_id, "system", "#{agent_name} from DylanSupport joined the chat.")
+
+    Chat.add_message(
+      ticket.conversation_id,
+      "system",
+      "#{agent_name} from DylanSupport joined the chat."
+    )
+
     add_event(ticket_id, "agent_takeover", "#{agent_name} took over the live chat.")
 
     get_ticket!(ticket_id)
@@ -180,7 +223,13 @@ defmodule SupportBot.Tickets do
     agent_name = ticket.conversation.active_agent_name || "The agent"
 
     Chat.set_agent_active(ticket.conversation_id, false, nil)
-    Chat.add_message(ticket.conversation_id, "system", "#{agent_name} left the chat. DylanBot is back.")
+
+    Chat.add_message(
+      ticket.conversation_id,
+      "system",
+      "#{agent_name} left the chat. DylanBot is back."
+    )
+
     add_event(ticket_id, "agent_handback", "#{agent_name} handed the chat back to DylanBot.")
 
     get_ticket!(ticket_id)

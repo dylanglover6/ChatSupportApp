@@ -7,7 +7,8 @@ defmodule SupportBotWeb.ChatLive do
 
   @impl true
   def mount(_params, session, socket) do
-    conversation = Chat.latest_or_create_conversation("Support chat")
+    visitor_id = RateLimit.visitor_id(session)
+    conversation = Chat.latest_or_create_conversation(visitor_id, "Support chat")
     messages = Chat.list_messages(conversation.id)
 
     if connected?(socket), do: Chat.subscribe(conversation.id)
@@ -22,6 +23,7 @@ defmodule SupportBotWeb.ChatLive do
       |> assign(:loading, false)
       |> assign(:show_ticket_form, false)
       |> assign(:created_ticket, nil)
+      |> assign(:visitor_id, visitor_id)
       |> assign(:rate_actor, RateLimit.actor(socket, session))
       |> assign(:agent_active, conversation.agent_active)
       |> assign(:active_agent_name, conversation.active_agent_name)
@@ -83,7 +85,7 @@ defmodule SupportBotWeb.ChatLive do
   end
 
   def handle_event("new_chat", _params, socket) do
-    conversation = Chat.create_conversation("Support chat")
+    conversation = Chat.create_conversation("Support chat", socket.assigns.visitor_id)
 
     {:noreply,
      socket

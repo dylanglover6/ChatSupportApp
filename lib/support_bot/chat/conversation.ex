@@ -6,6 +6,7 @@ defmodule SupportBot.Chat.Conversation do
     field :title, :string
     field :agent_active, :boolean, default: false
     field :active_agent_name, :string
+    field :visitor_id, :string
     has_many :messages, SupportBot.Chat.Message
     has_many :tickets, SupportBot.Tickets.Ticket
     timestamps(type: :utc_datetime)
@@ -13,7 +14,7 @@ defmodule SupportBot.Chat.Conversation do
 
   def changeset(conversation, attrs) do
     conversation
-    |> cast(attrs, [:title, :agent_active, :active_agent_name])
+    |> cast(attrs, [:title, :agent_active, :active_agent_name, :visitor_id])
     |> validate_required([:title])
   end
 end

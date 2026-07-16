@@ -2,22 +2,33 @@ defmodule SupportBotWeb.TicketLive.Show do
   use SupportBotWeb, :live_view
 
   alias SupportBot.{Agents, Chat, Tickets}
+  alias SupportBotWeb.RateLimit
 
   @impl true
-  def mount(%{"id" => id}, _session, socket) do
-    ticket = Tickets.open_ticket(id)
+  def mount(%{"id" => id}, session, socket) do
+    visitor_id = RateLimit.visitor_id(session)
 
-    if connected?(socket), do: Chat.subscribe(ticket.conversation_id)
+    case Tickets.get_visible_ticket(id, visitor_id) do
+      nil ->
+        {:ok,
+         socket
+         |> put_flash(:error, "That ticket isn't available on your DylanSupport desk.")
+         |> push_navigate(to: ~p"/support")}
 
-    {:ok,
-     socket
-     |> assign(:page_title, ticket.title)
-     |> assign(:ticket, ticket)
-     |> assign(:agents, Agents.list_agents())
-     |> assign(:agent_active, ticket.conversation.agent_active)
-     |> assign(:active_agent_name, ticket.conversation.active_agent_name)
-     |> assign(:show_email_form, false)
-     |> assign(:chat_draft, "")}
+      _visible ->
+        ticket = Tickets.open_ticket(id)
+        if connected?(socket), do: Chat.subscribe(ticket.conversation_id)
+
+        {:ok,
+         socket
+         |> assign(:page_title, ticket.title)
+         |> assign(:ticket, ticket)
+         |> assign(:agents, Agents.list_agents())
+         |> assign(:agent_active, ticket.conversation.agent_active)
+         |> assign(:active_agent_name, ticket.conversation.active_agent_name)
+         |> assign(:show_email_form, false)
+         |> assign(:chat_draft, "")}
+    end
   end
 
   @impl true
@@ -27,7 +38,11 @@ defmodule SupportBotWeb.TicketLive.Show do
 
     if message.conversation_id == conversation.id and
          message.id not in Enum.map(conversation.messages, & &1.id) do
-      updated = %{ticket | conversation: %{conversation | messages: conversation.messages ++ [message]}}
+      updated = %{
+        ticket
+        | conversation: %{conversation | messages: conversation.messages ++ [message]}
+      }
+
       {:noreply, assign(socket, :ticket, updated)}
     else
       {:noreply, socket}
@@ -120,7 +135,13 @@ defmodule SupportBotWeb.TicketLive.Show do
     ticket = socket.assigns.ticket
 
     if message != "" do
-      {:ok, _reply} = Tickets.add_reply(ticket.id, %{"kind" => "chat", "author_name" => agent_name(ticket), "body" => message})
+      {:ok, _reply} =
+        Tickets.add_reply(ticket.id, %{
+          "kind" => "chat",
+          "author_name" => agent_name(ticket),
+          "body" => message
+        })
+
       {:noreply, socket |> assign(:chat_draft, "") |> reload(Tickets.get_ticket!(ticket.id))}
     else
       {:noreply, socket}
@@ -148,10 +169,25 @@ defmodule SupportBotWeb.TicketLive.Show do
           <div class="section-heading">
             <h2>{@ticket.title}</h2>
             <div class="header-actions">
-              <button :if={@ticket.status not in ["Resolved", "Closed"]} type="button" class="mini-button success" phx-click="resolve">Resolve</button>
-              <button :if={@ticket.status == "Resolved"} type="button" class="mini-button" phx-click="close">Close</button>
+              <button
+                :if={@ticket.status not in ["Resolved", "Closed"]}
+                type="button"
+                class="mini-button success"
+                phx-click="resolve"
+              >Resolve</button>
+              <button
+                :if={@ticket.status == "Resolved"}
+                type="button"
+                class="mini-button"
+                phx-click="close"
+              >Close</button>
               <button :if={@ticket.status in ["Resolved", "Closed"]} type="button" phx-click="reopen">Reopen</button>
-              <button :if={@ticket.status != "Closed"} type="button" class="mini-button danger" phx-click="escalate">Escalate</button>
+              <button
+                :if={@ticket.status != "Closed"}
+                type="button"
+                class="mini-button danger"
+                phx-click="escalate"
+              >Escalate</button>
             </div>
           </div>
           <div class="row">
@@ -215,13 +251,29 @@ defmodule SupportBotWeb.TicketLive.Show do
 
           <div :if={@agent_active}>
             <p class="widget-escalated">{@active_agent_name} is live in this chat.</p>
-            <div id="ticket-chat-log" class="chat-log" style="min-height: 160px;" phx-hook="AutoScroll">
-              <div :for={message <- Enum.sort_by(@ticket.conversation.messages, & &1.inserted_at, DateTime)} class={"message #{message.role}"}>
+            <div
+              id="ticket-chat-log"
+              class="chat-log"
+              style="min-height: 160px;"
+              phx-hook="AutoScroll"
+            >
+              <div
+                :for={
+                  message <- Enum.sort_by(@ticket.conversation.messages, & &1.inserted_at, DateTime)
+                }
+                class={"message #{message.role}"}
+              >
                 {message.content}
               </div>
             </div>
             <form phx-submit="send_agent_chat" class="widget-input-row">
-              <input name="message" value={@chat_draft} placeholder="Type a live reply..." aria-label="Live reply" autocomplete="off" />
+              <input
+                name="message"
+                value={@chat_draft}
+                placeholder="Type a live reply..."
+                aria-label="Live reply"
+                autocomplete="off"
+              />
               <button type="submit">Send</button>
             </form>
             <button type="button" phx-click="hand_back">Hand Back to Bot</button>
@@ -232,11 +284,18 @@ defmodule SupportBotWeb.TicketLive.Show do
           <h2>Agent Composer</h2>
           <form phx-submit="save_reply">
             <input name="reply[author_name]" value={agent_name(@ticket)} aria-label="Author name" />
-            <textarea name="reply[body]" placeholder="Write an internal note..." aria-label="Internal note" required></textarea>
+            <textarea
+              name="reply[body]"
+              placeholder="Write an internal note..."
+              aria-label="Internal note"
+              required
+            ></textarea>
             <button class="primary" type="submit">Save Internal Note</button>
           </form>
           <button type="button" phx-click="show_email_form">Send Email (Simulated)</button>
-          <p class="muted">No real email is ever sent — this writes a simulated, clearly-labeled timeline entry.</p>
+          <p class="muted">
+            No real email is ever sent — this writes a simulated, clearly-labeled timeline entry.
+          </p>
         </section>
 
         <section class="panel">
@@ -246,15 +305,32 @@ defmodule SupportBotWeb.TicketLive.Show do
         </section>
       </aside>
 
-      <div :if={@show_email_form} class="modal-backdrop" phx-window-keydown="hide_email_form" phx-key="Escape">
+      <div
+        :if={@show_email_form}
+        class="modal-backdrop"
+        phx-window-keydown="hide_email_form"
+        phx-key="Escape"
+      >
         <section class="modal" phx-click-away="hide_email_form">
           <div class="section-heading">
             <h2>Send Email (Simulated)</h2>
             <button type="button" class="icon-button" phx-click="hide_email_form">Close</button>
           </div>
           <form phx-submit="send_email">
-            <input name="email[to]" value={@ticket.customer_email} placeholder="To" aria-label="To" required />
-            <input name="email[subject]" value={"Re: #{@ticket.title}"} placeholder="Subject" aria-label="Subject" required />
+            <input
+              name="email[to]"
+              value={@ticket.customer_email}
+              placeholder="To"
+              aria-label="To"
+              required
+            />
+            <input
+              name="email[subject]"
+              value={"Re: #{@ticket.title}"}
+              placeholder="Subject"
+              aria-label="Subject"
+              required
+            />
             <textarea name="email[body]" placeholder="Email body..." aria-label="Email body" required></textarea>
             <button class="primary" type="submit">Send Simulated Email</button>
           </form>

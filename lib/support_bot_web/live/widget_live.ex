@@ -8,7 +8,8 @@ defmodule SupportBotWeb.WidgetLive do
   @impl true
   def mount(_params, session, socket) do
     path = Map.get(session, "path", "/")
-    conversation = Chat.latest_or_create_conversation()
+    visitor_id = RateLimit.visitor_id(session)
+    conversation = Chat.latest_or_create_conversation(visitor_id)
     messages = Chat.list_messages(conversation.id)
 
     if connected?(socket), do: Chat.subscribe(conversation.id)

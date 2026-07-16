@@ -19,6 +19,7 @@ defmodule SupportBot.Tickets.Ticket do
     field :assignment_reason, :string
     field :kb_sources, {:array, :map}, default: []
     field :agent_assist, :string
+    field :visitor_id, :string
     belongs_to :conversation, SupportBot.Chat.Conversation
     belongs_to :assigned_agent, SupportBot.Agents.Agent
     has_many :events, SupportBot.Tickets.TicketEvent
@@ -50,7 +51,8 @@ defmodule SupportBot.Tickets.Ticket do
       :assigned_agent_id,
       :assignment_reason,
       :kb_sources,
-      :agent_assist
+      :agent_assist,
+      :visitor_id
     ])
     |> validate_required([:customer_name, :customer_email, :title, :priority, :category, :status])
     |> validate_format(:customer_email, ~r/@/)
