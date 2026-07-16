@@ -29,13 +29,38 @@ defmodule SupportBot.Chat do
   end
 
   def add_message(conversation_id, role, content, sources \\ []) do
-    %Message{}
-    |> Message.changeset(%{
-      conversation_id: conversation_id,
-      role: role,
-      content: content,
-      sources: sources
-    })
-    |> Repo.insert!()
+    message =
+      %Message{}
+      |> Message.changeset(%{
+        conversation_id: conversation_id,
+        role: role,
+        content: content,
+        sources: sources
+      })
+      |> Repo.insert!()
+
+    broadcast(conversation_id, {:new_message, message})
+    message
   end
+
+  def set_agent_active(conversation_id, active?, agent_name \\ nil) do
+    conversation =
+      Conversation
+      |> Repo.get!(conversation_id)
+      |> Conversation.changeset(%{agent_active: active?, active_agent_name: agent_name})
+      |> Repo.update!()
+
+    broadcast(conversation_id, {:agent_status, active?, agent_name})
+    conversation
+  end
+
+  def subscribe(conversation_id) do
+    Phoenix.PubSub.subscribe(SupportBot.PubSub, topic(conversation_id))
+  end
+
+  defp broadcast(conversation_id, message) do
+    Phoenix.PubSub.broadcast(SupportBot.PubSub, topic(conversation_id), message)
+  end
+
+  defp topic(conversation_id), do: "conversation:#{conversation_id}"
 end

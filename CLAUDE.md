@@ -99,29 +99,50 @@ Standard Phoenix context structure under `lib/support_bot/` (business logic, Ect
   with `specialties`, `color`, and a `shift_start`/`shift_end` (`Time`). `Schedule.available?/2`
   handles overnight shifts that cross midnight.
 - **`SupportBot.Tickets`** (`tickets.ex`, `tickets/ticket.ex`, `tickets/ticket_event.ex`,
-  `tickets/ticket_reply.ex`, `tickets/assignment.ex`) — the orchestration layer:
+  `tickets/ticket_reply.ex`, `tickets/assignment.ex`) — the orchestration layer (DylanSupport,
+  Phase 4):
   - `create_from_conversation/3` pulls the chat history, calls `AI.Client.summarize_ticket/3`
-    for category/priority/summary fields, calls `Assignment.assign/2`, and inserts the ticket +
-    `ticket_created`/`ticket_assigned` events in one transaction.
-  - `Assignment.assign/2` (`tickets/assignment.ex`) implements the routing rule: prefer an
-    available agent specializing in the category with the fewest open tickets; else any
-    available agent with the fewest open tickets; else the agent whose shift starts soonest,
-    marking the ticket `"Waiting for Agent"`. Open-ticket counts exclude `"Resolved"` tickets.
-  - `add_reply/2` inserts a `ticket_reply` (`reply_type`: `agent_reply` | `internal_note`),
-    logs a `ticket_event`, and auto-transitions status to `"Waiting on Customer"` for
-    customer-facing replies.
+    for category/priority/support_level/urgent/summary fields, calls `Assignment.assign/4`, and
+    inserts the ticket + `ticket_created`/`ticket_assigned` (+ `off_shift_assignment` if
+    applicable) events in one transaction.
+  - `Assignment.assign/4` (`tickets/assignment.ex`) takes `(category, support_level, urgent,
+    current_time \\ Time.utc_now())`. Urgent tickets always route to an on-shift expertise-level-3
+    agent, or the least-loaded L3 agent off-shift (ticket marked `"Waiting for Agent"`, logs
+    `off_shift_assignment`). Non-urgent tickets prefer an on-shift agent who specializes in the
+    category and whose `expertise_level >= support_level`, then any qualified on-shift agent, then
+    any on-shift agent, then whoever's shift starts soonest. Open-ticket counts exclude
+    `"Resolved"`/`"Closed"` tickets.
+  - Lifecycle: `open_ticket/1` (New → Open, called on ticket-page mount), `resolve_ticket/1`,
+    `close_ticket/1` (Resolved → Closed), `reopen_ticket/1`, `escalate_ticket/1` (forces urgent +
+    reassigns to an L3 agent), `reassign_ticket/2` (manual), `maybe_reopen_for_conversation/1`
+    (reopens any Resolved/Closed ticket when the linked conversation gets a new customer message —
+    called from `chat_live.ex`/`widget_live.ex` after every user message).
+  - `add_reply/2` inserts a `ticket_reply` (`kind`: `"note"` | `"email"` | `"chat"`) and logs a
+    `ticket_event`. `"email"` and `"chat"` replies auto-transition the ticket to `"Resolved"`;
+    `"chat"` replies also insert a `SupportBot.Chat` message (`role: "agent"`) so they appear live
+    in the visitor's widget. `"note"` replies (internal) never change status.
+  - `take_over_chat/1` / `hand_back_chat/1` flip `conversations.agent_active` (via
+    `SupportBot.Chat.set_agent_active/3`) and broadcast over Phoenix PubSub
+    (`"conversation:#{id}"`) so the widget/chat LiveViews stop invoking `AI.Client` while an agent
+    is live — see `SupportBot.Chat.subscribe/1`, `broadcast` payloads `{:new_message, message}`
+    and `{:agent_status, active?, agent_name}`.
   - `generate_agent_assist/1` re-invokes the AI client and stores the result on the ticket.
 
-LiveViews mirror this: `live/chat_live.ex` (`/chat`), `live/ticket_live/index.ex` (`/tickets`,
-the manager dashboard: agent cards, open queue, recent activity from `ticket_events`),
-`live/ticket_live/show.ex` (`/tickets/:id`, the ticket workspace), `live/kb_live/index.ex` and
-`show.ex` (`/kb`, `/kb/:slug`). Routes are defined in `lib/support_bot_web/router.ex`.
+LiveViews mirror this: `live/chat_live.ex` (`/chat`), `live/widget_live.ex` (persistent widget,
+every page), `live/ticket_live/index.ex` (`/support`, DylanSupport queue: agent cards with
+expertise-level dots, urgent-pinned ticket queue, recent activity from `ticket_events`),
+`live/ticket_live/show.ex` (`/support/:id`, the ticket workspace: status controls, manual
+reassign, unified history timeline, simulated email composer, live chat takeover panel),
+`live/kb_live/index.ex` and `show.ex` (`/docs`, `/docs/:slug`). Routes are defined in
+`lib/support_bot_web/router.ex`.
 
-Statuses: `New`, `Open`, `Waiting on Customer`, `Waiting for Agent`, `Escalated`, `Resolved`.
-Priorities: `Low`, `Normal`, `High`, `Urgent`. Categories: `SSO`, `API`, `Webhooks`,
-`Permissions`, `File Uploads`, `Billing`, `Other` — these strings are matched by regex in
-`AI.Client.detect_category/1`/`detect_priority/1` and also expected by `Assignment.assign/2`,
-so keep them in sync if you add/rename a category.
+Statuses: `New`, `Open`, `Waiting for Agent`, `Resolved`, `Closed` (see `Ticket.statuses/0`).
+`urgent` is a separate boolean field, orthogonal to status. Priorities: `Low`, `Normal`, `High`,
+`Urgent` (from `AI.Client.detect_priority/1`, independent of `urgent`/`support_level`).
+Support levels: `1`–`3` (from `AI.Client.detect_support_level/1`; `3` implies `urgent`).
+Categories: `Docs`, `Projects`, `Hiring`, `General` — matched by regex in
+`AI.Client.detect_category/1` and expected by `Assignment.assign/4` (agent `specialties`), so
+keep them in sync if you add/rename a category.
 
 ## MVP constraints (still apply per the original brief, `supportbot_codex_brief.md`)
 

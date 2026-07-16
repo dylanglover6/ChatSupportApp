@@ -5,7 +5,15 @@ defmodule SupportBot.Tickets.Assignment do
   alias SupportBot.Repo
   alias SupportBot.Tickets.Ticket
 
-  def assign(category, current_time \\ Time.utc_now()) do
+  @doc """
+  Returns `{agent, status, reason, off_shift?}`. Urgent tickets always route to an
+  expertise-level-3 agent, on shift if possible; otherwise the least-loaded L3 agent
+  is assigned off-shift and the ticket is marked "Waiting for Agent". Non-urgent
+  tickets prefer an on-shift, category-specialized agent whose expertise level covers
+  the ticket's support level, falling back to any qualified on-shift agent, then any
+  on-shift agent, then whoever's shift starts soonest.
+  """
+  def assign(category, support_level \\ 1, urgent \\ false, current_time \\ Time.utc_now()) do
     agents =
       Agent
       |> order_by([a], asc: a.name)
@@ -13,25 +21,60 @@ defmodule SupportBot.Tickets.Assignment do
       |> Enum.map(&Map.put(&1, :open_ticket_count, open_count(&1.id)))
 
     available = Enum.filter(agents, &Schedule.available?(&1, current_time))
-    specialized = Enum.filter(available, &specializes?(&1, category))
+
+    if urgent do
+      assign_urgent(agents, available)
+    else
+      assign_standard(agents, available, category, support_level, current_time)
+    end
+  end
+
+  defp assign_urgent(agents, available) do
+    l3_available = Enum.filter(available, &(&1.expertise_level >= 3))
+
+    if l3_available != [] do
+      agent = fewest_open(l3_available)
+
+      {agent, "New", false,
+       "Assigned to #{agent.name} because #{subject(agent)} #{agree(agent, "is")} a level 3 agent currently in office and this ticket was flagged urgent."}
+    else
+      l3_agents = Enum.filter(agents, &(&1.expertise_level >= 3))
+      agent = fewest_open(l3_agents)
+
+      {agent, "Waiting for Agent", true,
+       "No level 3 agents are currently in office. Assigned off-shift to #{agent.name} (least-loaded L3 agent) because this ticket was flagged urgent."}
+    end
+  end
+
+  defp assign_standard(agents, available, category, support_level, current_time) do
+    qualified = Enum.filter(available, &(&1.expertise_level >= support_level))
+    specialized = Enum.filter(qualified, &specializes?(&1, category))
 
     cond do
       specialized != [] ->
         agent = fewest_open(specialized)
 
-        {agent, "Open",
-         "Assigned to #{agent.name} because #{pronoun(agent)} is currently in office, specializes in #{category}, and has the fewest open tickets among available #{category} agents."}
+        {agent, "New", false,
+         "Assigned to #{agent.name} because #{subject(agent)} #{agree(agent, "is")} currently in office, #{agree(agent, "specializes")} in #{category}, #{agree(agent, "meets")} the required expertise level, and #{agree(agent, "has")} the fewest open tickets among available #{category} agents."}
+
+      qualified != [] ->
+        agent = fewest_open(qualified)
+
+        {agent, "New", false,
+         "Assigned to #{agent.name} because #{subject(agent)} #{agree(agent, "is")} currently in office, #{agree(agent, "meets")} the required expertise level, and #{agree(agent, "has")} the fewest open tickets among available agents."}
 
       available != [] ->
         agent = fewest_open(available)
 
-        {agent, "Open",
-         "Assigned to #{agent.name} because #{pronoun(agent)} is currently in office and has the fewest open tickets among available agents."}
+        {agent, "New", false,
+         "Assigned to #{agent.name} because #{subject(agent)} #{agree(agent, "is")} currently in office and #{agree(agent, "has")} the fewest open tickets among available agents."}
 
       true ->
-        agent = next_shift(agents, current_time)
+        eligible = Enum.filter(agents, &(&1.expertise_level >= support_level))
+        pool = if eligible != [], do: eligible, else: agents
+        agent = next_shift(pool, current_time)
 
-        {agent, "Waiting for Agent",
+        {agent, "Waiting for Agent", false,
          "No agents are currently in office. Assigned to #{agent.name}, whose shift starts soonest, and marked Waiting for Agent."}
     end
   end
@@ -48,11 +91,17 @@ defmodule SupportBot.Tickets.Assignment do
 
   defp open_count(agent_id) do
     Ticket
-    |> where([t], t.assigned_agent_id == ^agent_id and t.status not in ["Resolved"])
+    |> where([t], t.assigned_agent_id == ^agent_id and t.status not in ["Resolved", "Closed"])
     |> Repo.aggregate(:count)
   end
 
-  defp pronoun(%{name: "Maya Chen"}), do: "she"
-  defp pronoun(%{name: "Sofia Ramirez"}), do: "she"
-  defp pronoun(_), do: "they"
+  defp subject(%{name: "Maya Chen"}), do: "she"
+  defp subject(%{name: "Sofia Ramirez"}), do: "she"
+  defp subject(_), do: "they"
+
+  @singular %{"is" => "is", "has" => "has", "meets" => "meets", "specializes" => "specializes"}
+  @plural %{"is" => "are", "has" => "have", "meets" => "meet", "specializes" => "specialize"}
+
+  defp agree(%{name: name}, verb) when name in ["Maya Chen", "Sofia Ramirez"], do: @singular[verb]
+  defp agree(_agent, verb), do: @plural[verb]
 end

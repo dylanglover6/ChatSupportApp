@@ -14,6 +14,6 @@ defmodule SupportBot.Chat.Message do
     message
     |> cast(attrs, [:conversation_id, :role, :content, :sources])
     |> validate_required([:conversation_id, :role, :content])
-    |> validate_inclusion(:role, ["user", "assistant", "system"])
+    |> validate_inclusion(:role, ["user", "assistant", "system", "agent"])
   end
 end

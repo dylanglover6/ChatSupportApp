@@ -10,6 +10,8 @@ defmodule SupportBotWeb.WidgetLive do
     conversation = Chat.latest_or_create_conversation()
     messages = Chat.list_messages(conversation.id)
 
+    if connected?(socket), do: Chat.subscribe(conversation.id)
+
     {:ok,
      socket
      |> assign(:conversation, conversation)
@@ -22,7 +24,32 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:unread_count, 0)
      |> assign(:message, "")
      |> assign(:show_escalation_form, false)
-     |> assign(:escalated_ticket, nil)}
+     |> assign(:escalated_ticket, nil)
+     |> assign(:agent_active, conversation.agent_active)
+     |> assign(:active_agent_name, conversation.active_agent_name)}
+  end
+
+  @impl true
+  def handle_info({:new_message, message}, socket) do
+    if message.conversation_id == socket.assigns.conversation.id and
+         message.id not in Enum.map(socket.assigns.messages, & &1.id) do
+      unread =
+        if socket.assigns.open, do: socket.assigns.unread_count, else: socket.assigns.unread_count + 1
+
+      {:noreply,
+       socket
+       |> assign(:messages, socket.assigns.messages ++ [message])
+       |> assign(:unread_count, unread)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:agent_status, active?, agent_name}, socket) do
+    {:noreply,
+     socket
+     |> assign(:agent_active, active?)
+     |> assign(:active_agent_name, agent_name)}
   end
 
   @impl true
@@ -75,21 +102,29 @@ defmodule SupportBotWeb.WidgetLive do
       socket
     else
       conversation_id = socket.assigns.conversation.id
-      snippets = Search.search(message)
-      sources = to_source_maps(snippets)
-      history = Chat.list_messages(conversation_id)
       user = Chat.add_message(conversation_id, "user", message)
-      {response, status} = Client.chat(message, history, snippets, socket.assigns.current_path)
-      assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+      Tickets.maybe_reopen_for_conversation(conversation_id)
 
-      unread = if socket.assigns.open, do: 0, else: socket.assigns.unread_count + 1
+      if socket.assigns.agent_active do
+        socket
+        |> assign(:messages, socket.assigns.messages ++ [user])
+        |> assign(:message, "")
+      else
+        snippets = Search.search(message)
+        sources = to_source_maps(snippets)
+        history = Chat.list_messages(conversation_id)
+        {response, status} = Client.chat(message, history, snippets, socket.assigns.current_path)
+        assistant = Chat.add_message(conversation_id, "assistant", response, sources)
 
-      socket
-      |> assign(:messages, socket.assigns.messages ++ [user, assistant])
-      |> assign(:sources, merge_sources(socket.assigns.sources, sources))
-      |> assign(:message, "")
-      |> assign(:ollama_status, if(status == :ollama, do: :ok, else: :fallback))
-      |> assign(:unread_count, unread)
+        unread = if socket.assigns.open, do: 0, else: socket.assigns.unread_count + 1
+
+        socket
+        |> assign(:messages, socket.assigns.messages ++ [user, assistant])
+        |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+        |> assign(:message, "")
+        |> assign(:ollama_status, if(status == :ollama, do: :ok, else: :fallback))
+        |> assign(:unread_count, unread)
+      end
     end
   end
 
@@ -111,13 +146,26 @@ defmodule SupportBotWeb.WidgetLive do
 
       <section :if={@open} class="widget-panel">
         <header class="widget-header">
-          <span class="widget-title">DYLANBOT</span>
+          <span class="widget-title">
+            {if @agent_active, do: String.upcase(@active_agent_name || "AGENT"), else: "DYLANBOT"}
+          </span>
           <span
-            class={"widget-status-dot #{if @ollama_status == :ok, do: "is-ok", else: "is-fallback"}"}
-            title={if @ollama_status == :ok, do: "Ollama reachable", else: "Fallback mode"}
+            class={"widget-status-dot #{cond do
+              @agent_active -> "is-live"
+              @ollama_status == :ok -> "is-ok"
+              true -> "is-fallback"
+            end}"}
+            title={cond do
+              @agent_active -> "#{@active_agent_name} is live"
+              @ollama_status == :ok -> "Ollama reachable"
+              true -> "Fallback mode"
+            end}
           >
           </span>
         </header>
+        <p :if={@agent_active} class="widget-escalated">
+          {@active_agent_name} has joined this chat — DylanBot is paused.
+        </p>
 
         <div id="widget-chat-log" class="widget-messages" phx-hook="AutoScroll">
           <div :if={@messages == []} class="widget-message assistant">
@@ -170,7 +218,7 @@ defmodule SupportBotWeb.WidgetLive do
           <input
             name="message"
             value={@message}
-            placeholder="Ask DylanBot..."
+            placeholder={if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot..."}
             autocomplete="off"
           />
           <button type="submit">Send</button>

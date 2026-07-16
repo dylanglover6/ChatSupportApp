@@ -174,6 +174,48 @@ code, pre { font-family: var(--font-mono-terminal); font-size: 16px; }
 .badge-green { background: var(--ok-glow); color: var(--ok); border-color: var(--ok); }
 .badge-orange { background: var(--warn-glow); color: var(--warn); border-color: var(--warn); }
 .badge-purple { background: var(--purple-glow); color: var(--purple); border-color: var(--purple); }
+.badge-level { background: var(--purple-glow); color: var(--purple); border-color: var(--purple); }
+.badge-closed { background: var(--surface); color: var(--text-muted); border-color: var(--border); }
+.badge-urgent-pin {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--danger);
+  background: var(--danger-glow);
+  color: var(--danger);
+  padding: 3px 6px;
+  font-family: var(--font-display);
+  font-size: 8px;
+  letter-spacing: 0.03em;
+  margin-right: 6px;
+}
+
+.expertise-dots { color: var(--accent); letter-spacing: 2px; font-size: 12px; }
+.expertise-dots.small { font-size: 10px; }
+.agent-chip { display: inline-flex; align-items: center; gap: 6px; }
+.is-urgent-row { background: var(--danger-glow); }
+
+.timeline-note {
+  border: 1px dashed var(--border);
+  background: var(--surface);
+  padding: 10px;
+  border-radius: 0;
+}
+.timeline-email {
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  padding: 10px;
+  border-radius: 0;
+}
+.timeline-email-header {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
 
 .btn,
 .button,
@@ -482,6 +524,16 @@ button:disabled {
 }
 .message.user { align-self: flex-end; background: var(--accent-glow); border-color: var(--accent-dim); }
 .message.assistant { align-self: flex-start; }
+.message.agent { align-self: flex-start; background: var(--info-glow); border-color: var(--info); }
+.message.system {
+  align-self: center;
+  max-width: 90%;
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
 
 .sources { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
 .source-link {
@@ -1143,6 +1195,7 @@ textarea { min-height: 96px; resize: vertical; }
 }
 .widget-status-dot.is-ok { background: var(--ok); }
 .widget-status-dot.is-fallback { background: var(--warn); }
+.widget-status-dot.is-live { background: var(--accent); }
 
 .widget-messages {
   flex: 1;
@@ -1168,6 +1221,16 @@ textarea { min-height: 96px; resize: vertical; }
 }
 .widget-message.assistant {
   color: var(--text);
+}
+.widget-message.agent {
+  color: var(--info);
+}
+.widget-message.system {
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 13px;
+  border-bottom: none;
 }
 .widget-message .sources {
   margin-top: 6px;

@@ -9,6 +9,8 @@ defmodule SupportBotWeb.ChatLive do
     conversation = Chat.latest_or_create_conversation("Support chat")
     messages = Chat.list_messages(conversation.id)
 
+    if connected?(socket), do: Chat.subscribe(conversation.id)
+
     socket =
       socket
       |> assign(:page_title, "Chat")
@@ -19,8 +21,27 @@ defmodule SupportBotWeb.ChatLive do
       |> assign(:loading, false)
       |> assign(:show_ticket_form, false)
       |> assign(:created_ticket, nil)
+      |> assign(:agent_active, conversation.agent_active)
+      |> assign(:active_agent_name, conversation.active_agent_name)
 
     {:ok, socket}
+  end
+
+  @impl true
+  def handle_info({:new_message, message}, socket) do
+    if message.conversation_id == socket.assigns.conversation.id and
+         message.id not in Enum.map(socket.assigns.messages, & &1.id) do
+      {:noreply, assign(socket, :messages, socket.assigns.messages ++ [message])}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:agent_status, active?, agent_name}, socket) do
+    {:noreply,
+     socket
+     |> assign(:agent_active, active?)
+     |> assign(:active_agent_name, agent_name)}
   end
 
   @impl true
@@ -31,19 +52,29 @@ defmodule SupportBotWeb.ChatLive do
       {:noreply, socket}
     else
       conversation_id = socket.assigns.conversation.id
-      snippets = Search.search(message)
-      sources = to_source_maps(snippets)
-      history = Chat.list_messages(conversation_id)
       user = Chat.add_message(conversation_id, "user", message)
-      {response, _status} = Client.chat(message, history, snippets, "/chat")
-      assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+      Tickets.maybe_reopen_for_conversation(conversation_id)
 
-      {:noreply,
-       socket
-       |> assign(:messages, socket.assigns.messages ++ [user, assistant])
-       |> assign(:sources, merge_sources(socket.assigns.sources, sources))
-       |> assign(:message, "")
-       |> assign(:show_ticket_form, false)}
+      if socket.assigns.agent_active do
+        {:noreply,
+         socket
+         |> assign(:messages, socket.assigns.messages ++ [user])
+         |> assign(:message, "")
+         |> assign(:show_ticket_form, false)}
+      else
+        snippets = Search.search(message)
+        sources = to_source_maps(snippets)
+        history = Chat.list_messages(conversation_id)
+        {response, _status} = Client.chat(message, history, snippets, "/chat")
+        assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+
+        {:noreply,
+         socket
+         |> assign(:messages, socket.assigns.messages ++ [user, assistant])
+         |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+         |> assign(:message, "")
+         |> assign(:show_ticket_form, false)}
+      end
     end
   end
 
@@ -98,12 +129,15 @@ defmodule SupportBotWeb.ChatLive do
     <div class="chat-page">
       <section class="panel chat-panel">
         <div class="section-heading">
-          <h2>Chat with DylanBot</h2>
+          <h2>{if @agent_active, do: "Live chat with #{@active_agent_name}", else: "Chat with DylanBot"}</h2>
           <div class="header-actions">
             <button type="button" phx-click="show_ticket_form">Leave a Message for Dylan</button>
             <button type="button" phx-click="new_chat">New Chat</button>
           </div>
         </div>
+        <p :if={@agent_active} class="widget-escalated">
+          {@active_agent_name} has joined this chat — DylanBot is paused.
+        </p>
         <div id="chat-log" class="chat-log" phx-hook="AutoScroll">
           <div :if={@messages == []} class="message assistant">
             Howdy! Ask me about Dylan's skills, projects, or how this platform is built —
@@ -129,7 +163,7 @@ defmodule SupportBotWeb.ChatLive do
           <input
             name="message"
             value={@message}
-            placeholder="Ask DylanBot something..."
+            placeholder={if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot something..."}
             autocomplete="off"
           />
           <button class="primary" type="submit">Send</button>

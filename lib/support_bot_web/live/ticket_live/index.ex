@@ -11,7 +11,7 @@ defmodule SupportBotWeb.TicketLive.Index do
 
   defp load(socket) do
     socket
-    |> assign(:page_title, "Manager Dashboard")
+    |> assign(:page_title, "DylanSupport")
     |> assign(:agents, Agents.list_agents())
     |> assign(:tickets, Tickets.list_tickets())
     |> assign(:events, Tickets.recent_events())
@@ -28,6 +28,9 @@ defmodule SupportBotWeb.TicketLive.Index do
             <h3>{agent.name}</h3>
             <p>
               <.badge kind={String.downcase(agent.color)}>{agent.color}</.badge>
+              <span class="expertise-dots" title={"Level #{agent.expertise_level}"}>
+                {expertise_dots(agent.expertise_level)}
+              </span>
             </p>
             <p>Status: <strong>{agent.availability}</strong></p>
             <p>Shift: {Schedule.shift_label(agent)}</p>
@@ -38,27 +41,35 @@ defmodule SupportBotWeb.TicketLive.Index do
       </section>
 
       <section class="panel">
-        <h2>Open Ticket Queue</h2>
+        <h2>Ticket Queue</h2>
         <table class="table">
           <thead>
             <tr>
               <th>Ticket</th>
               <th>Customer</th>
               <th>Category</th>
+              <th>Level</th>
               <th>Priority</th>
               <th>Status</th>
               <th>Assigned</th>
+              <th>Age</th>
             </tr>
           </thead>
           <tbody>
             <tr :if={@tickets == []}>
-              <td colspan="6" class="muted">No tickets yet. Create one from the chat page.</td>
+              <td colspan="8" class="muted">No tickets yet. Create one from the chat widget.</td>
             </tr>
-            <tr :for={ticket <- @tickets}>
-              <td><.link navigate={~p"/support/#{ticket.id}"}>{ticket.title}</.link></td>
+            <tr :for={ticket <- @tickets} class={ticket.urgent && "is-urgent-row"}>
+              <td>
+                <span :if={ticket.urgent} class="badge badge-urgent-pin">URGENT</span>
+                <.link navigate={~p"/support/#{ticket.id}"}>{ticket.title}</.link>
+              </td>
               <td>{ticket.customer_email}</td>
               <td>
                 <.badge>{ticket.category}</.badge>
+              </td>
+              <td>
+                <.badge kind="level">L{ticket.support_level}</.badge>
               </td>
               <td>
                 <.badge kind={String.downcase(ticket.priority)}>{ticket.priority}</.badge>
@@ -67,12 +78,14 @@ defmodule SupportBotWeb.TicketLive.Index do
                 <.badge kind={status_kind(ticket.status)}>{ticket.status}</.badge>
               </td>
               <td>
-                <span :if={ticket.assigned_agent}>
+                <span :if={ticket.assigned_agent} class="agent-chip">
                   <.badge kind={String.downcase(ticket.assigned_agent.color)}>
                     {ticket.assigned_agent.name}
                   </.badge>
+                  <span class="expertise-dots small">{expertise_dots(ticket.assigned_agent.expertise_level)}</span>
                 </span>
               </td>
+              <td class="muted">{age(ticket.inserted_at)}</td>
             </tr>
           </tbody>
         </table>
@@ -94,4 +107,19 @@ defmodule SupportBotWeb.TicketLive.Index do
 
   defp status_kind("Waiting" <> _), do: "waiting"
   defp status_kind(status), do: status |> String.downcase() |> String.replace(" ", "-")
+
+  defp expertise_dots(level) do
+    String.duplicate("■", level) <> String.duplicate("□", 3 - level)
+  end
+
+  defp age(inserted_at) do
+    seconds = DateTime.diff(DateTime.utc_now(), inserted_at)
+
+    cond do
+      seconds < 60 -> "just now"
+      seconds < 3600 -> "#{div(seconds, 60)}m ago"
+      seconds < 86_400 -> "#{div(seconds, 3600)}h ago"
+      true -> "#{div(seconds, 86_400)}d ago"
+    end
+  end
 end

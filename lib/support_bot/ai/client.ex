@@ -47,6 +47,8 @@ defmodule SupportBot.AI.Client do
     source_titles = Enum.map_join(sources, ", ", & &1["title"])
     combined = "#{details["title"]} #{details["details"]}"
 
+    support_level = detect_support_level(combined)
+
     %{
       issue_summary: details["title"],
       conversation_summary: String.slice(text, 0, 900),
@@ -54,7 +56,9 @@ defmodule SupportBot.AI.Client do
       likely_cause: infer_likely_cause(combined),
       missing_information: "The specific question Dylan should follow up on, and the best way to reach the visitor back.",
       priority: detect_priority(combined),
-      category: detect_category(combined)
+      category: detect_category(combined),
+      support_level: support_level,
+      urgent: support_level == 3
     }
   end
 
@@ -80,13 +84,10 @@ defmodule SupportBot.AI.Client do
     text = String.downcase(text || "")
 
     cond do
-      text =~ ~r/sso|saml|okta|login/ -> "SSO"
-      text =~ ~r/api|token|401|unauthorized/ -> "API"
-      text =~ ~r/webhook|delivery|retry/ -> "Webhooks"
-      text =~ ~r/permission|invite|workspace|access/ -> "Permissions"
-      text =~ ~r/upload|file|size|type/ -> "File Uploads"
-      text =~ ~r/billing|invoice|account/ -> "Billing"
-      true -> "Other"
+      text =~ ~r/hire|hiring|job|role|position|recruit|interview|opportunit/ -> "Hiring"
+      text =~ ~r/project|architecture|built|stack|repo|github|codebase/ -> "Projects"
+      text =~ ~r/doc|documentation|typo|correct|broken link|kb page/ -> "Docs"
+      true -> "General"
     end
   end
 
@@ -98,6 +99,16 @@ defmodule SupportBot.AI.Client do
       text =~ ~r/error|failing|cannot|can't|unable/ -> "High"
       text =~ ~r/question|how do|can i/ -> "Low"
       true -> "Normal"
+    end
+  end
+
+  def detect_support_level(text) do
+    text = String.downcase(text || "")
+
+    cond do
+      text =~ ~r/urgent|asap|broken|down|production|blocked|critical|emergency/ -> 3
+      text =~ ~r/error|bug|technical|integration|architecture|code|deploy|stack/ -> 2
+      true -> 1
     end
   end
 

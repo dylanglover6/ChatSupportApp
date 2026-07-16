@@ -2,13 +2,14 @@ defmodule SupportBot.Tickets do
   import Ecto.Query
 
   alias SupportBot.AI.Client
+  alias SupportBot.Agents.Agent
   alias SupportBot.Chat
   alias SupportBot.Repo
   alias SupportBot.Tickets.{Assignment, Ticket, TicketEvent, TicketReply}
 
   def list_tickets do
     Ticket
-    |> order_by([t], desc: t.inserted_at)
+    |> order_by([t], desc: t.urgent, desc: t.inserted_at)
     |> preload(:assigned_agent)
     |> Repo.all()
   end
@@ -30,7 +31,7 @@ defmodule SupportBot.Tickets do
   def create_from_conversation(conversation_id, attrs, sources) do
     messages = Chat.list_messages(conversation_id)
     summary = Client.summarize_ticket(messages, attrs, sources)
-    {agent, status, reason} = Assignment.assign(summary.category)
+    {agent, status, off_shift?, reason} = Assignment.assign(summary.category, summary.support_level, summary.urgent)
 
     ticket_attrs =
       attrs
@@ -48,6 +49,15 @@ defmodule SupportBot.Tickets do
         {:ok, ticket} ->
           add_event(ticket.id, "ticket_created", "Ticket created from chatbot conversation.")
           add_event(ticket.id, "ticket_assigned", "Ticket assigned to #{agent.name}.")
+
+          if off_shift? do
+            add_event(
+              ticket.id,
+              "off_shift_assignment",
+              "#{agent.name} was assigned off-shift because this ticket is urgent and no level 3 agent is currently in office."
+            )
+          end
+
           ticket
 
         {:error, changeset} ->
@@ -63,20 +73,126 @@ defmodule SupportBot.Tickets do
         |> TicketReply.changeset(Map.put(attrs, "ticket_id", ticket_id))
         |> Repo.insert!()
 
-      type =
-        if reply.reply_type == "agent_reply",
-          do: "Agent reply saved.",
-          else: "Internal note saved."
+      ticket = Repo.get!(Ticket, ticket_id)
 
-      add_event(ticket_id, reply.reply_type, type)
+      case reply.kind do
+        "note" ->
+          add_event(ticket_id, "note_added", "Internal note saved.")
 
-      if reply.reply_type == "agent_reply" do
-        ticket = Repo.get!(Ticket, ticket_id)
-        ticket |> Ticket.changeset(%{status: "Waiting on Customer"}) |> Repo.update!()
-        add_event(ticket_id, "status_changed", "Status changed to Waiting on Customer.")
+        "email" ->
+          add_event(ticket_id, "email_sent", "Simulated email sent to #{reply.email_to} — SIMULATED, not delivered.")
+          do_resolve(ticket)
+
+        "chat" ->
+          Chat.add_message(ticket.conversation_id, "agent", reply.body)
+          add_event(ticket_id, "chat_message", "#{reply.author_name} sent a live chat message.")
+          do_resolve(ticket)
       end
 
       reply
+    end)
+  end
+
+  def open_ticket(ticket_id) do
+    ticket = Repo.get!(Ticket, ticket_id)
+
+    if ticket.status == "New" do
+      ticket |> Ticket.changeset(%{status: "Open"}) |> Repo.update!()
+      add_event(ticket_id, "status_changed", "Status changed to Open.")
+    end
+
+    get_ticket!(ticket_id)
+  end
+
+  def resolve_ticket(ticket_id) do
+    Repo.get!(Ticket, ticket_id) |> do_resolve()
+    get_ticket!(ticket_id)
+  end
+
+  def close_ticket(ticket_id) do
+    ticket = Repo.get!(Ticket, ticket_id)
+    ticket |> Ticket.changeset(%{status: "Closed"}) |> Repo.update!()
+    add_event(ticket_id, "status_changed", "Status changed to Closed.")
+    get_ticket!(ticket_id)
+  end
+
+  def reopen_ticket(ticket_id) do
+    ticket = Repo.get!(Ticket, ticket_id)
+    ticket |> Ticket.changeset(%{status: "Open"}) |> Repo.update!()
+    add_event(ticket_id, "reopened", "Ticket reopened.")
+    get_ticket!(ticket_id)
+  end
+
+  def escalate_ticket(ticket_id) do
+    ticket = Repo.get!(Ticket, ticket_id)
+    {agent, status, off_shift?, reason} = Assignment.assign(ticket.category, 3, true)
+
+    ticket
+    |> Ticket.changeset(%{
+      urgent: true,
+      support_level: 3,
+      assigned_agent_id: agent.id,
+      assignment_reason: reason,
+      status: if(ticket.status == "New", do: status, else: ticket.status)
+    })
+    |> Repo.update!()
+
+    add_event(ticket_id, "escalated", "Ticket escalated and reassigned to #{agent.name}.")
+
+    if off_shift? do
+      add_event(
+        ticket_id,
+        "off_shift_assignment",
+        "#{agent.name} was assigned off-shift because this ticket is urgent and no level 3 agent is currently in office."
+      )
+    end
+
+    get_ticket!(ticket_id)
+  end
+
+  def reassign_ticket(ticket_id, agent_id) do
+    agent = Repo.get!(Agent, agent_id)
+
+    Repo.get!(Ticket, ticket_id)
+    |> Ticket.changeset(%{
+      assigned_agent_id: agent.id,
+      assignment_reason: "Manually reassigned to #{agent.name}."
+    })
+    |> Repo.update!()
+
+    add_event(ticket_id, "reassigned", "Ticket manually reassigned to #{agent.name}.")
+    get_ticket!(ticket_id)
+  end
+
+  def take_over_chat(ticket_id) do
+    ticket = get_ticket!(ticket_id)
+    agent_name = if ticket.assigned_agent, do: ticket.assigned_agent.name, else: "A DylanSupport agent"
+
+    Chat.set_agent_active(ticket.conversation_id, true, agent_name)
+    Chat.add_message(ticket.conversation_id, "system", "#{agent_name} from DylanSupport joined the chat.")
+    add_event(ticket_id, "agent_takeover", "#{agent_name} took over the live chat.")
+
+    get_ticket!(ticket_id)
+  end
+
+  def hand_back_chat(ticket_id) do
+    ticket = get_ticket!(ticket_id)
+    agent_name = ticket.conversation.active_agent_name || "The agent"
+
+    Chat.set_agent_active(ticket.conversation_id, false, nil)
+    Chat.add_message(ticket.conversation_id, "system", "#{agent_name} left the chat. DylanBot is back.")
+    add_event(ticket_id, "agent_handback", "#{agent_name} handed the chat back to DylanBot.")
+
+    get_ticket!(ticket_id)
+  end
+
+  def maybe_reopen_for_conversation(conversation_id) do
+    Ticket
+    |> where([t], t.conversation_id == ^conversation_id and t.status in ["Resolved", "Closed"])
+    |> Repo.all()
+    |> Enum.each(fn ticket ->
+      ticket |> Ticket.changeset(%{status: "Open"}) |> Repo.update!()
+      add_event(ticket.id, "reopened", "Ticket reopened after a new customer message.")
     end)
   end
 
@@ -87,6 +203,13 @@ defmodule SupportBot.Tickets do
     ticket
     |> Ticket.changeset(%{agent_assist: assist})
     |> Repo.update!()
+  end
+
+  defp do_resolve(ticket) do
+    if ticket.status != "Resolved" do
+      ticket |> Ticket.changeset(%{status: "Resolved"}) |> Repo.update!()
+      add_event(ticket.id, "status_changed", "Status changed to Resolved.")
+    end
   end
 
   defp add_event(ticket_id, type, message) do
