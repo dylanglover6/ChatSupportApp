@@ -230,7 +230,9 @@ defmodule SupportBotWeb.ChatLive do
         <p class="muted">
           In a production version, a confirmation summary would be emailed to the customer.
         </p>
-        <.link class="button primary" navigate={~p"/support/#{@created_ticket.id}"}>View Ticket</.link>
+        <.link class="button primary" navigate={~p"/status/#{@created_ticket.public_token}"}>
+          Check ticket status →
+        </.link>
       </section>
 
       <div

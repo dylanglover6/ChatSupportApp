@@ -247,8 +247,8 @@ defmodule SupportBotWeb.WidgetLive do
         <div :if={@notice} class="widget-notice" role="status">{@notice}</div>
 
         <div :if={@escalated_ticket} class="widget-escalated">
-          Ticket created —
-          <.link navigate={~p"/support/#{@escalated_ticket.id}"}>view it in DylanSupport →</.link>
+          Message sent to Dylan —
+          <.link navigate={~p"/status/#{@escalated_ticket.public_token}"}>check its status →</.link>
         </div>
 
         <div :if={@show_escalation_form} class="widget-escalation-form">

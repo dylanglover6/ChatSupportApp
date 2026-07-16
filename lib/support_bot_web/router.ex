@@ -31,6 +31,7 @@ defmodule SupportBotWeb.Router do
     live "/chat", ChatLive
     live "/support", TicketLive.Index
     live "/support/:id", TicketLive.Show
+    live "/status/:token", StatusLive
     live "/docs", KBLive.Index
     live "/docs/:slug", KBLive.Show
 

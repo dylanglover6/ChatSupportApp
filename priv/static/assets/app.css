@@ -724,6 +724,11 @@ textarea { min-height: 96px; resize: vertical; }
 
 .article-body { line-height: 1.6; white-space: pre-wrap; font-family: var(--font-body); }
 
+/* Visitor-facing ticket status page */
+.status-page { width: min(720px, 100%); margin: 0 auto; display: grid; gap: 16px; }
+.status-lede { font-size: 16px; margin-bottom: 12px; }
+.status-footer { text-align: center; }
+
 @media (max-width: 900px) {
   .grid.two { grid-template-columns: 1fr; }
 }
