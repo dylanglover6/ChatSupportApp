@@ -542,6 +542,7 @@ const GRID_SPAWN_MS = 750
 const GRID_CELL_LIFE_MS = 2600
 const GRID_MAX_CELLS = 6
 const GRID_SECRET_SCORE = 15
+const GRID_TEXT_PAD = 20
 
 function initHeroGrid(hero) {
   if (prefersReducedMotion() || isMobileMode()) return
@@ -568,11 +569,42 @@ function initHeroGrid(hero) {
   }
   renderScore()
 
+  // Rectangles (hero-relative) covering the hero text, so cells never spawn behind it.
+  function textZones() {
+    const heroRect = hero.getBoundingClientRect()
+    return Array.from(hero.querySelectorAll(".hero-headline, .hero-subline")).map((el) => {
+      const r = el.getBoundingClientRect()
+      return {
+        left: r.left - heroRect.left - GRID_TEXT_PAD,
+        top: r.top - heroRect.top - GRID_TEXT_PAD,
+        right: r.right - heroRect.left + GRID_TEXT_PAD,
+        bottom: r.bottom - heroRect.top + GRID_TEXT_PAD,
+      }
+    })
+  }
+
+  function overlapsText(x, y, zones) {
+    return zones.some(
+      (z) => x < z.right && x + GRID_CELL_PX > z.left && y < z.bottom && y + GRID_CELL_PX > z.top,
+    )
+  }
+
   function spawn() {
     if (layer.childElementCount >= GRID_MAX_CELLS) return
     const cols = Math.floor(hero.clientWidth / GRID_CELL_PX)
     const rows = Math.floor(hero.clientHeight / GRID_CELL_PX)
     if (cols < 3 || rows < 3) return
+
+    const zones = textZones()
+    let x
+    let y
+    let tries = 0
+    do {
+      x = Math.floor(Math.random() * cols) * GRID_CELL_PX
+      y = Math.floor(Math.random() * rows) * GRID_CELL_PX
+      tries += 1
+    } while (overlapsText(x, y, zones) && tries < 12)
+    if (overlapsText(x, y, zones)) return
 
     const cell = document.createElement("button")
     cell.type = "button"
@@ -580,10 +612,15 @@ function initHeroGrid(hero) {
     cell.tabIndex = -1
     cell.setAttribute("aria-hidden", "true")
     cell.textContent = randomBinary()
-    cell.style.left = `${Math.floor(Math.random() * cols) * GRID_CELL_PX}px`
-    cell.style.top = `${Math.floor(Math.random() * rows) * GRID_CELL_PX}px`
+    cell.style.left = `${x}px`
+    cell.style.top = `${y}px`
 
-    const life = setTimeout(() => cell.remove(), GRID_CELL_LIFE_MS)
+    const fadeOut = () => {
+      cell.classList.add("is-fading")
+      setTimeout(() => cell.remove(), 250)
+    }
+    const life = setTimeout(fadeOut, GRID_CELL_LIFE_MS)
+
     cell.addEventListener("pointerdown", (event) => {
       event.preventDefault()
       clearTimeout(life)

@@ -846,6 +846,11 @@ textarea { min-height: 96px; resize: vertical; }
   animation: grid-cell-in 0.25s ease-out;
 }
 .grid-cell:hover { background: var(--accent); color: var(--bg); transform: none; }
+.grid-cell.is-fading {
+  opacity: 0;
+  animation: none;
+  transition: opacity 0.25s ease-out;
+}
 .grid-cell.is-hit {
   background: var(--accent);
   color: var(--bg);
