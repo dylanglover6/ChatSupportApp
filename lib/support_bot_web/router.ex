@@ -4,10 +4,24 @@ defmodule SupportBotWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug :put_visitor_id
     plug :fetch_live_flash
     plug :put_root_layout, html: {SupportBotWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+  end
+
+  # Stamp a stable, random per-session id used as the rate-limit actor key. Not
+  # security-sensitive on its own — just a spam/abuse throttle handle.
+  defp put_visitor_id(conn, _opts) do
+    case Plug.Conn.get_session(conn, :visitor_id) do
+      nil ->
+        id = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+        Plug.Conn.put_session(conn, :visitor_id, id)
+
+      _ ->
+        conn
+    end
   end
 
   scope "/", SupportBotWeb do

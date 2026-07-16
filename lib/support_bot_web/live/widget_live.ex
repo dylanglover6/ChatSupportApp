@@ -3,6 +3,7 @@ defmodule SupportBotWeb.WidgetLive do
 
   alias SupportBot.{AI.Client, AI.DocLinks, AI.PageContext, Chat, Tickets}
   alias SupportBot.KB.Search
+  alias SupportBotWeb.RateLimit
 
   @impl true
   def mount(_params, session, socket) do
@@ -23,8 +24,10 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:open, false)
      |> assign(:unread_count, 0)
      |> assign(:message, "")
+     |> assign(:notice, nil)
      |> assign(:show_escalation_form, false)
      |> assign(:escalated_ticket, nil)
+     |> assign(:rate_actor, RateLimit.actor(socket, session))
      |> assign(:agent_active, conversation.agent_active)
      |> assign(:active_agent_name, conversation.active_agent_name)}
   end
@@ -34,7 +37,9 @@ defmodule SupportBotWeb.WidgetLive do
     if message.conversation_id == socket.assigns.conversation.id and
          message.id not in Enum.map(socket.assigns.messages, & &1.id) do
       unread =
-        if socket.assigns.open, do: socket.assigns.unread_count, else: socket.assigns.unread_count + 1
+        if socket.assigns.open,
+          do: socket.assigns.unread_count,
+          else: socket.assigns.unread_count + 1
 
       {:noreply,
        socket
@@ -91,50 +96,80 @@ defmodule SupportBotWeb.WidgetLive do
   end
 
   def handle_event("create_ticket", %{"ticket" => attrs}, socket) do
-    case Tickets.create_from_conversation(socket.assigns.conversation.id, attrs, socket.assigns.sources) do
-      {:ok, ticket} ->
+    case RateLimit.check(:ticket, socket.assigns.rate_actor) do
+      {:error, :rate_limited, _retry} ->
         {:noreply,
-         socket
-         |> assign(:escalated_ticket, Tickets.get_ticket!(ticket.id))
-         |> assign(:show_escalation_form, false)}
+         add_notice(
+           socket,
+           "You've created a lot of messages just now — please try again in a few minutes."
+         )}
 
-      {:error, _changeset} ->
-        {:noreply, socket}
+      :ok ->
+        case Tickets.create_from_conversation(
+               socket.assigns.conversation.id,
+               attrs,
+               socket.assigns.sources
+             ) do
+          {:ok, ticket} ->
+            {:noreply,
+             socket
+             |> assign(:escalated_ticket, Tickets.get_ticket!(ticket.id))
+             |> assign(:show_escalation_form, false)}
+
+          {:error, _changeset} ->
+            {:noreply, socket}
+        end
     end
   end
 
   defp do_send(socket, message) do
     message = String.trim(message)
 
-    if message == "" do
-      socket
-    else
-      conversation_id = socket.assigns.conversation.id
-      user = Chat.add_message(conversation_id, "user", message)
-      Tickets.maybe_reopen_for_conversation(conversation_id)
-
-      if socket.assigns.agent_active do
+    cond do
+      message == "" ->
         socket
-        |> assign(:messages, socket.assigns.messages ++ [user])
-        |> assign(:message, "")
-      else
-        snippets = Search.search(message)
-        sources = to_source_maps(snippets)
-        history = Chat.list_messages(conversation_id)
-        {response, status} = Client.chat(message, history, snippets, socket.assigns.current_path)
-        assistant = Chat.add_message(conversation_id, "assistant", response, sources)
 
-        unread = if socket.assigns.open, do: 0, else: socket.assigns.unread_count + 1
+      match?({:error, :rate_limited, _}, RateLimit.check(:chat, socket.assigns.rate_actor)) ->
+        add_notice(
+          socket,
+          "Whoa there — you're sending messages a bit too fast. Give me a few seconds!"
+        )
 
-        socket
-        |> assign(:messages, socket.assigns.messages ++ [user, assistant])
-        |> assign(:sources, merge_sources(socket.assigns.sources, sources))
-        |> assign(:message, "")
-        |> assign(:ollama_status, if(status == :ollama, do: :ok, else: :fallback))
-        |> assign(:unread_count, unread)
-      end
+      true ->
+        deliver(socket, message)
     end
   end
+
+  defp deliver(socket, message) do
+    conversation_id = socket.assigns.conversation.id
+    user = Chat.add_message(conversation_id, "user", message)
+    Tickets.maybe_reopen_for_conversation(conversation_id)
+
+    if socket.assigns.agent_active do
+      socket
+      |> assign(:messages, socket.assigns.messages ++ [user])
+      |> assign(:message, "")
+      |> assign(:notice, nil)
+    else
+      snippets = Search.search(message)
+      sources = to_source_maps(snippets)
+      history = Chat.list_messages(conversation_id)
+      {response, status} = Client.chat(message, history, snippets, socket.assigns.current_path)
+      assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+
+      unread = if socket.assigns.open, do: 0, else: socket.assigns.unread_count + 1
+
+      socket
+      |> assign(:messages, socket.assigns.messages ++ [user, assistant])
+      |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+      |> assign(:message, "")
+      |> assign(:notice, nil)
+      |> assign(:ollama_status, if(status == :ollama, do: :ok, else: :fallback))
+      |> assign(:unread_count, unread)
+    end
+  end
+
+  defp add_notice(socket, text), do: assign(socket, :notice, text)
 
   @impl true
   def render(assigns) do
@@ -163,13 +198,14 @@ defmodule SupportBotWeb.WidgetLive do
               @ollama_status == :ok -> "is-ok"
               true -> "is-fallback"
             end}"}
-            title={cond do
-              @agent_active -> "#{@active_agent_name} is live"
-              @ollama_status == :ok -> "Ollama reachable"
-              true -> "Fallback mode"
-            end}
-          >
-          </span>
+            title={
+              cond do
+                @agent_active -> "#{@active_agent_name} is live"
+                @ollama_status == :ok -> "Ollama reachable"
+                true -> "Fallback mode"
+              end
+            }
+          ></span>
         </header>
         <p :if={@agent_active} class="widget-escalated">
           {@active_agent_name} has joined this chat — DylanBot is paused.
@@ -180,7 +216,9 @@ defmodule SupportBotWeb.WidgetLive do
             Howdy! Ask me about Dylan's skills, projects, or this platform — or tap a suggestion below.
           </div>
           <div :for={message <- @messages} class={"widget-message #{message.role}"}>
-            {if message.role == "assistant", do: DocLinks.render(message.content), else: message.content}
+            {if message.role == "assistant",
+              do: DocLinks.render(message.content),
+              else: message.content}
             <div :if={message.sources != []} class="sources">
               <.link
                 :for={source <- message.sources}
@@ -205,6 +243,8 @@ defmodule SupportBotWeb.WidgetLive do
           </button>
         </div>
 
+        <div :if={@notice} class="widget-notice" role="status">{@notice}</div>
+
         <div :if={@escalated_ticket} class="widget-escalated">
           Ticket created —
           <.link navigate={~p"/support/#{@escalated_ticket.id}"}>view it in DylanSupport →</.link>
@@ -212,9 +252,25 @@ defmodule SupportBotWeb.WidgetLive do
 
         <div :if={@show_escalation_form} class="widget-escalation-form">
           <form phx-submit="create_ticket">
-            <input name="ticket[customer_name]" placeholder="Your name" aria-label="Your name" required />
-            <input name="ticket[customer_email]" type="email" placeholder="Your email" aria-label="Your email" required />
-            <input name="ticket[title]" placeholder="What's this about?" aria-label="What's this about?" required />
+            <input
+              name="ticket[customer_name]"
+              placeholder="Your name"
+              aria-label="Your name"
+              required
+            />
+            <input
+              name="ticket[customer_email]"
+              type="email"
+              placeholder="Your email"
+              aria-label="Your email"
+              required
+            />
+            <input
+              name="ticket[title]"
+              placeholder="What's this about?"
+              aria-label="What's this about?"
+              required
+            />
             <div class="widget-escalation-actions">
               <button type="button" class="icon-button" phx-click="hide_escalation_form">Cancel</button>
               <button class="primary" type="submit">Leave Message</button>
@@ -226,7 +282,9 @@ defmodule SupportBotWeb.WidgetLive do
           <input
             name="message"
             value={@message}
-            placeholder={if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot..."}
+            placeholder={
+              if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot..."
+            }
             aria-label="Message"
             autocomplete="off"
           />

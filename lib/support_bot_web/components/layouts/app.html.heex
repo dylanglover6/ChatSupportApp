@@ -44,7 +44,12 @@
   </div>
 
   <main class="app-main">
-    <p :if={Phoenix.Flash.get(@flash, :info)} class="flash">{Phoenix.Flash.get(@flash, :info)}</p>
+    <p :if={Phoenix.Flash.get(@flash, :info)} class="flash" role="status">
+      {Phoenix.Flash.get(@flash, :info)}
+    </p>
+    <p :if={Phoenix.Flash.get(@flash, :error)} class="flash flash-error" role="alert">
+      {Phoenix.Flash.get(@flash, :error)}
+    </p>
     {@inner_content}
   </main>
 </div>

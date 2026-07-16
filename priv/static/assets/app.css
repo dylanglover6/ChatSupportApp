@@ -625,6 +625,7 @@ textarea { min-height: 96px; resize: vertical; }
 .table th { color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }
 
 .flash { border: 1px solid var(--ok); background: var(--ok-glow); color: var(--ok); padding: 12px; border-radius: 0; margin-bottom: 16px; }
+.flash-error { border-color: var(--danger); background: var(--danger-glow); color: var(--danger); }
 
 .timeline { display: grid; gap: 10px; }
 .timeline-item { border-left: 3px solid var(--border); padding-left: 12px; }
@@ -1287,6 +1288,15 @@ textarea { min-height: 96px; resize: vertical; }
   border-top: 1px solid var(--border);
   font-size: 13px;
   color: var(--ok);
+  flex-shrink: 0;
+}
+
+.widget-notice {
+  padding: 10px 14px;
+  border-top: 1px solid var(--warn);
+  background: var(--warn-glow);
+  font-size: 13px;
+  color: var(--warn);
   flex-shrink: 0;
 }
 

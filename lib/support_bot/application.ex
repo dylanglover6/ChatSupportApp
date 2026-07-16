@@ -7,6 +7,7 @@ defmodule SupportBot.Application do
       SupportBot.Repo,
       {DNSCluster, query: Application.get_env(:support_bot, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: SupportBot.PubSub},
+      SupportBot.RateLimiter,
       SupportBotWeb.Endpoint
     ]
 

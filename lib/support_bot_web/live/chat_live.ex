@@ -3,9 +3,10 @@ defmodule SupportBotWeb.ChatLive do
 
   alias SupportBot.{AI.Client, AI.DocLinks, Chat, Tickets}
   alias SupportBot.KB.Search
+  alias SupportBotWeb.RateLimit
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     conversation = Chat.latest_or_create_conversation("Support chat")
     messages = Chat.list_messages(conversation.id)
 
@@ -21,6 +22,7 @@ defmodule SupportBotWeb.ChatLive do
       |> assign(:loading, false)
       |> assign(:show_ticket_form, false)
       |> assign(:created_ticket, nil)
+      |> assign(:rate_actor, RateLimit.actor(socket, session))
       |> assign(:agent_active, conversation.agent_active)
       |> assign(:active_agent_name, conversation.active_agent_name)
 
@@ -48,33 +50,20 @@ defmodule SupportBotWeb.ChatLive do
   def handle_event("send", %{"message" => message}, socket) do
     message = String.trim(message)
 
-    if message == "" do
-      {:noreply, socket}
-    else
-      conversation_id = socket.assigns.conversation.id
-      user = Chat.add_message(conversation_id, "user", message)
-      Tickets.maybe_reopen_for_conversation(conversation_id)
+    cond do
+      message == "" ->
+        {:noreply, socket}
 
-      if socket.assigns.agent_active do
+      match?({:error, :rate_limited, _}, RateLimit.check(:chat, socket.assigns.rate_actor)) ->
         {:noreply,
-         socket
-         |> assign(:messages, socket.assigns.messages ++ [user])
-         |> assign(:message, "")
-         |> assign(:show_ticket_form, false)}
-      else
-        snippets = Search.search(message)
-        sources = to_source_maps(snippets)
-        history = Chat.list_messages(conversation_id)
-        {response, _status} = Client.chat(message, history, snippets, "/chat")
-        assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+         put_flash(
+           socket,
+           :error,
+           "You're sending messages a bit too fast — give it a few seconds."
+         )}
 
-        {:noreply,
-         socket
-         |> assign(:messages, socket.assigns.messages ++ [user, assistant])
-         |> assign(:sources, merge_sources(socket.assigns.sources, sources))
-         |> assign(:message, "")
-         |> assign(:show_ticket_form, false)}
-      end
+      true ->
+        deliver(socket, message)
     end
   end
 
@@ -107,6 +96,48 @@ defmodule SupportBotWeb.ChatLive do
   end
 
   def handle_event("create_ticket", %{"ticket" => attrs}, socket) do
+    case RateLimit.check(:ticket, socket.assigns.rate_actor) do
+      {:error, :rate_limited, _retry} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "You've submitted a lot just now — please try again in a few minutes."
+         )}
+
+      :ok ->
+        create_ticket(socket, attrs)
+    end
+  end
+
+  defp deliver(socket, message) do
+    conversation_id = socket.assigns.conversation.id
+    user = Chat.add_message(conversation_id, "user", message)
+    Tickets.maybe_reopen_for_conversation(conversation_id)
+
+    if socket.assigns.agent_active do
+      {:noreply,
+       socket
+       |> assign(:messages, socket.assigns.messages ++ [user])
+       |> assign(:message, "")
+       |> assign(:show_ticket_form, false)}
+    else
+      snippets = Search.search(message)
+      sources = to_source_maps(snippets)
+      history = Chat.list_messages(conversation_id)
+      {response, _status} = Client.chat(message, history, snippets, "/chat")
+      assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+
+      {:noreply,
+       socket
+       |> assign(:messages, socket.assigns.messages ++ [user, assistant])
+       |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+       |> assign(:message, "")
+       |> assign(:show_ticket_form, false)}
+    end
+  end
+
+  defp create_ticket(socket, attrs) do
     sources = socket.assigns.sources
 
     case Tickets.create_from_conversation(socket.assigns.conversation.id, attrs, sources) do
@@ -117,9 +148,13 @@ defmodule SupportBotWeb.ChatLive do
          |> assign(:created_ticket, SupportBot.Tickets.get_ticket!(ticket.id))
          |> assign(:show_ticket_form, false)}
 
-      {:error, changeset} ->
+      {:error, _changeset} ->
         {:noreply,
-         put_flash(socket, :info, "Ticket could not be created: #{inspect(changeset.errors)}")}
+         put_flash(
+           socket,
+           :error,
+           "Sorry — that ticket couldn't be created. Please check the fields and try again."
+         )}
     end
   end
 
@@ -129,7 +164,9 @@ defmodule SupportBotWeb.ChatLive do
     <div class="chat-page">
       <section class="panel chat-panel">
         <div class="section-heading">
-          <h2>{if @agent_active, do: "Live chat with #{@active_agent_name}", else: "Chat with DylanBot"}</h2>
+          <h2>
+            {if @agent_active, do: "Live chat with #{@active_agent_name}", else: "Chat with DylanBot"}
+          </h2>
           <div class="header-actions">
             <button type="button" phx-click="show_ticket_form">Leave a Message for Dylan</button>
             <button type="button" phx-click="new_chat">New Chat</button>
@@ -144,7 +181,9 @@ defmodule SupportBotWeb.ChatLive do
             or just say hi and I'll take it from there.
           </div>
           <div :for={message <- @messages} class={"message #{message.role}"}>
-            {if message.role == "assistant", do: DocLinks.render(message.content), else: message.content}
+            {if message.role == "assistant",
+              do: DocLinks.render(message.content),
+              else: message.content}
             <div :if={message.sources != []} class="sources">
               <.link
                 :for={source <- message.sources}
@@ -163,7 +202,11 @@ defmodule SupportBotWeb.ChatLive do
           <input
             name="message"
             value={@message}
-            placeholder={if @agent_active, do: "Message #{@active_agent_name}...", else: "Ask DylanBot something..."}
+            placeholder={
+              if @agent_active,
+                do: "Message #{@active_agent_name}...",
+                else: "Ask DylanBot something..."
+            }
             aria-label="Message"
             autocomplete="off"
           />
@@ -188,17 +231,37 @@ defmodule SupportBotWeb.ChatLive do
         <.link class="button primary" navigate={~p"/support/#{@created_ticket.id}"}>View Ticket</.link>
       </section>
 
-      <div :if={@show_ticket_form} class="modal-backdrop" phx-window-keydown="hide_ticket_form" phx-key="Escape">
+      <div
+        :if={@show_ticket_form}
+        class="modal-backdrop"
+        phx-window-keydown="hide_ticket_form"
+        phx-key="Escape"
+      >
         <section class="modal" phx-click-away="hide_ticket_form">
           <div class="section-heading">
             <h2>Create Ticket</h2>
             <button type="button" class="icon-button" phx-click="hide_ticket_form">Close</button>
           </div>
           <form phx-submit="create_ticket">
-            <input name="ticket[customer_name]" placeholder="Customer name" aria-label="Customer name" required />
-            <input name="ticket[customer_email]" type="email" placeholder="Customer email" aria-label="Customer email" required />
+            <input
+              name="ticket[customer_name]"
+              placeholder="Customer name"
+              aria-label="Customer name"
+              required
+            />
+            <input
+              name="ticket[customer_email]"
+              type="email"
+              placeholder="Customer email"
+              aria-label="Customer email"
+              required
+            />
             <input name="ticket[title]" placeholder="Issue title" aria-label="Issue title" required />
-            <textarea name="ticket[details]" placeholder="Optional additional details" aria-label="Additional details"></textarea>
+            <textarea
+              name="ticket[details]"
+              placeholder="Optional additional details"
+              aria-label="Additional details"
+            ></textarea>
             <button class="primary" type="submit">Create Ticket</button>
           </form>
         </section>
