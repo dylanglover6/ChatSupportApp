@@ -9,7 +9,7 @@ const WHIP_GLITCH_SPEED_THRESHOLD = 260
 const WHIP_GLITCH_MIN_MS = 80
 const WHIP_GLITCH_MAX_MS = 120
 const CURSOR_HOLD_MS = 500
-const SUBLINE_TYPE_MS = 35
+const SUBLINE_TYPE_MS = 22
 
 function prefersReducedMotion() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -349,6 +349,18 @@ function setupSubline(hero) {
   return { content, chatLink, prefixText, suffixText }
 }
 
+function hideSubline(subline) {
+  if (!subline) return
+  if (subline.chatLink) subline.chatLink.remove()
+  subline.content.textContent = ""
+}
+
+function revealSublineContainer(subline) {
+  if (!subline) return
+  const container = subline.content.closest(".hero-subline")
+  if (container) container.style.visibility = ""
+}
+
 function typeInto(container, text, cursor, onDone) {
   let i = 0
   function step() {
@@ -375,9 +387,6 @@ function runCursorSequence(headline, subline) {
   if (!subline) return
   const { content, chatLink, prefixText, suffixText } = subline
   const cursor = createCursor()
-
-  if (chatLink) chatLink.remove()
-  content.textContent = ""
 
   const lastLine = headline.querySelector(".headline-line:last-child")
   lastLine.appendChild(cursor)
@@ -420,6 +429,7 @@ function initHero() {
     })
     showStaticCursor(subline)
   } else {
+    hideSubline(subline)
     runScrambleReveal(letters, () => {
       initPhysics(headline, letters, isMobileMode())
       runCursorSequence(headline, subline)
@@ -427,6 +437,7 @@ function initHero() {
     initParallax(hero)
   }
 
+  revealSublineContainer(subline)
   initReveal()
   initScrollspy()
 }
