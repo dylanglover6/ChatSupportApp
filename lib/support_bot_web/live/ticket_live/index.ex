@@ -12,18 +12,44 @@ defmodule SupportBotWeb.TicketLive.Index do
 
   defp load(socket) do
     visitor_id = socket.assigns.visitor_id
+    agents = Agents.list_agents()
+    tickets = Tickets.list_tickets(visitor_id)
 
     socket
     |> assign(:page_title, "DylanSupport")
-    |> assign(:agents, Agents.list_agents())
-    |> assign(:tickets, Tickets.list_tickets(visitor_id))
+    |> assign(:agents, agents)
+    |> assign(:tickets, tickets)
     |> assign(:events, Tickets.recent_events(visitor_id))
+    |> assign(:stats, desk_stats(tickets))
+    |> assign(:max_open, max_open(agents))
   end
 
   @impl true
   def render(assigns) do
     ~H"""
     <div class="grid">
+      <section class="panel">
+        <h2>Desk Overview</h2>
+        <div class="stat-row">
+          <div class="stat-tile">
+            <span class="stat-num">{@stats.open}</span>
+            <span class="stat-label">Open</span>
+          </div>
+          <div class={["stat-tile", @stats.urgent > 0 && "stat-danger"]}>
+            <span class="stat-num">{@stats.urgent}</span>
+            <span class="stat-label">Urgent</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-num">{@stats.waiting}</span>
+            <span class="stat-label">Waiting</span>
+          </div>
+          <div class="stat-tile">
+            <span class="stat-num">{@stats.resolved}</span>
+            <span class="stat-label">Resolved</span>
+          </div>
+        </div>
+      </section>
+
       <section class="panel">
         <h2>Agent Overview</h2>
         <div class="grid three">
@@ -39,6 +65,16 @@ defmodule SupportBotWeb.TicketLive.Index do
             <p>Shift: {Schedule.shift_label(agent)}</p>
             <p>Specialties: {Enum.join(agent.specialties, ", ")}</p>
             <p>Open Tickets: <strong>{agent.open_ticket_count}</strong></p>
+            <div
+              class="workload-meter"
+              role="img"
+              aria-label={"Workload: #{agent.open_ticket_count} open tickets"}
+            >
+              <span
+                class="workload-fill"
+                style={"width: #{workload_pct(agent.open_ticket_count, @max_open)}%"}
+              ></span>
+            </div>
           </article>
         </div>
       </section>
@@ -90,7 +126,9 @@ defmodule SupportBotWeb.TicketLive.Index do
                   )}</span>
                 </span>
               </td>
-              <td data-label="Age" class="muted">{age(ticket.inserted_at)}</td>
+              <td data-label="Age" class={["muted", sla_class(ticket)]}>
+                {age(ticket.inserted_at)}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -115,6 +153,35 @@ defmodule SupportBotWeb.TicketLive.Index do
 
   defp expertise_dots(level) do
     String.duplicate("■", level) <> String.duplicate("□", 3 - level)
+  end
+
+  defp desk_stats(tickets) do
+    active = Enum.reject(tickets, &(&1.status in ["Resolved", "Closed"]))
+
+    %{
+      open: length(active),
+      urgent: Enum.count(active, & &1.urgent),
+      waiting: Enum.count(tickets, &(&1.status == "Waiting for Agent")),
+      resolved: Enum.count(tickets, &(&1.status == "Resolved"))
+    }
+  end
+
+  defp max_open(agents), do: agents |> Enum.map(& &1.open_ticket_count) |> Enum.max(fn -> 0 end)
+
+  defp workload_pct(_count, 0), do: 0
+  defp workload_pct(count, max), do: round(count / max * 100)
+
+  # SLA staleness colors the age cell for still-open tickets; done tickets stay neutral.
+  defp sla_class(%{status: status}) when status in ["Resolved", "Closed"], do: "sla-done"
+
+  defp sla_class(ticket) do
+    hours = DateTime.diff(DateTime.utc_now(), ticket.inserted_at) / 3600
+
+    cond do
+      hours < 4 -> "sla-fresh"
+      hours < 24 -> "sla-aging"
+      true -> "sla-stale"
+    end
   end
 
   defp age(inserted_at) do
