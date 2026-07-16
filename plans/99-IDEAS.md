@@ -36,20 +36,24 @@
 - Hooks in: Phase 3+; `AI.Client`, `WidgetLive`
 - Type: architectural (changes the client/LiveView message flow)
 
-## Konami code easter egg on the portfolio
+## Konami code easter egg on the portfolio ✅ SHIPPED
 - What: ↑↑↓↓←→←→ triggers a retro effect (CRT flicker, coin sound, hidden doc link)
 - Hooks in: `assets/js/portfolio.js`, any time after Phase 1
 - Type: additive
+- Shipped: ↑↑↓↓←→←→BA → CRT flicker + toast linking to the colophon. No audio asset.
 
-## Visitor-facing ticket status page
+## Visitor-facing ticket status page ✅ SHIPPED
 - What: after leaving a message via the widget, visitor gets a link to check their ticket's status
 - Hooks in: after Phase 4; new route + LiveView, ticket lookup token
 - Type: additive-ish (new route, no schema change if token stored on ticket)
+- Shipped: `tickets.public_token` + `/status/:token` (`StatusLive`, read-only, no internal
+  notes); widget/chat confirmations link there.
 
-## SLA timers / workload analytics on DylanSupport
+## SLA timers / workload analytics on DylanSupport ✅ SHIPPED
 - What: per-ticket age timers and per-agent workload charts on the desk index
 - Hooks in: after Phase 4; `ticket_live/index.ex`
 - Type: additive
+- Shipped: Desk Overview stat tiles, per-agent workload meters, SLA age coloring.
 
 ## Light mode theme
 - What: alternate light palette behind a `[data-theme="light"]` toggle. Technically just
@@ -60,7 +64,7 @@
 - Hooks in: `app.css` tokens + a toggle in the layout; anytime, but design-review every page
 - Type: additive in code, architectural in design — decide deliberately, not mid-phase
 
-## Interactive hero background grid (click-to-score easter egg)
+## Interactive hero background grid (click-to-score easter egg) ✅ SHIPPED
 - What: the hero's background pixel grid (`.hero-bg-grid`) randomly fades 1s and 0s into
   random grid cells over time; clicking a lit cell increments a persistent score counter
   shown in the top-left corner (localStorage-backed, so it survives reloads). Hitting a
