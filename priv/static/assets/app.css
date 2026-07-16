@@ -876,3 +876,210 @@ textarea { min-height: 96px; resize: vertical; }
   .scroll-hint { animation: none; }
   .hero-cursor { animation: none; }
 }
+
+/* ==========================================================================
+   DylanDocs (/docs)
+   ========================================================================== */
+.docs-layout {
+  display: block;
+}
+
+.docs-sidebar-desktop {
+  display: none;
+}
+
+.docs-sidebar-mobile {
+  margin-bottom: 24px;
+  border: 2px solid var(--border);
+  background: var(--bg-raised);
+}
+.docs-sidebar-mobile summary {
+  cursor: pointer;
+  padding: 12px 16px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--accent);
+}
+.docs-sidebar-mobile[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+.docs-sidebar-mobile .docs-nav-tree {
+  padding: 12px 16px;
+}
+
+.docs-nav-group {
+  margin-bottom: 20px;
+}
+.docs-nav-group h4 {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+.docs-nav-link {
+  display: block;
+  padding: 4px 0;
+  font-size: 14px;
+  color: var(--text);
+  text-decoration: none;
+}
+.docs-nav-link:hover {
+  color: var(--accent);
+}
+.docs-nav-link.is-active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.docs-search {
+  margin-bottom: 24px;
+}
+.docs-search input {
+  font-family: var(--font-mono-terminal);
+  font-size: 18px;
+}
+
+.docs-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.docs-search-result {
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  text-decoration: none;
+  color: var(--text);
+}
+.docs-search-result:hover {
+  border-color: var(--accent);
+}
+.docs-search-result strong {
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 12px;
+}
+.docs-search-result p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.docs-breadcrumb {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.docs-ask-bot-hint {
+  margin-top: 32px;
+  padding: 12px 16px;
+  border: 1px dashed var(--border);
+  background: var(--bg-raised);
+}
+.docs-ask-bot-hint p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.docs-prev-next {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.docs-prev-next a {
+  font-size: 14px;
+}
+.docs-next {
+  margin-left: auto;
+}
+
+/* Rendered markdown content */
+.docs-article h1 {
+  font-size: clamp(18px, 3vw, 26px);
+  text-shadow: 3px 3px 0 var(--accent-dim);
+}
+.docs-article h2 {
+  margin-top: 32px;
+  font-size: clamp(15px, 2vw, 19px);
+}
+.docs-article h3 {
+  margin-top: 24px;
+  font-size: 13px;
+  color: var(--accent);
+}
+.docs-article p,
+.docs-article li {
+  line-height: 1.7;
+}
+.docs-article ul,
+.docs-article ol {
+  padding-left: 24px;
+  margin: 0 0 16px;
+}
+.docs-article a {
+  color: var(--accent);
+}
+.docs-article pre {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+.docs-article code {
+  font-family: var(--font-mono-terminal);
+  font-size: 16px;
+}
+.docs-article :not(pre) > code {
+  background: var(--surface);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+}
+.docs-article blockquote {
+  margin: 0 0 16px;
+  padding: 8px 16px;
+  border-left: 3px solid var(--accent-dim);
+  background: var(--accent-glow);
+  color: var(--text-muted);
+  font-style: italic;
+}
+.docs-article blockquote p {
+  margin: 0;
+}
+.docs-article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 16px;
+}
+.docs-article th,
+.docs-article td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+}
+.docs-article hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+@media (min-width: 900px) {
+  .docs-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 40px;
+    align-items: start;
+  }
+  .docs-sidebar-desktop {
+    display: block;
+    position: sticky;
+    top: 32px;
+  }
+  .docs-sidebar-mobile {
+    display: none;
+  }
+}

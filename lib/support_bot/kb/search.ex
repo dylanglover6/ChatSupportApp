@@ -34,13 +34,15 @@ defmodule SupportBot.KB.Search do
 
   defp score_article(article, tokens) do
     title = String.downcase(article.title)
+    summary = String.downcase(Map.get(article, :summary, ""))
     body = String.downcase(article.body)
 
     score =
       Enum.reduce(tokens, 0, fn token, acc ->
         title_hits = if String.contains?(title, token), do: 4, else: 0
+        summary_hits = if String.contains?(summary, token), do: 2, else: 0
         body_hits = Regex.scan(~r/\b#{Regex.escape(token)}\b/, body) |> length()
-        acc + title_hits + body_hits
+        acc + title_hits + summary_hits + body_hits
       end)
 
     {score, article}
