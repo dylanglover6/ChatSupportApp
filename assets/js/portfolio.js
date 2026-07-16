@@ -492,6 +492,62 @@ function showStaticCursor(subline) {
   subline.content.appendChild(createCursor("is-static"))
 }
 
+const KONAMI = [
+  "ArrowUp",
+  "ArrowUp",
+  "ArrowDown",
+  "ArrowDown",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowLeft",
+  "ArrowRight",
+  "b",
+  "a",
+]
+
+function triggerKonami() {
+  if (document.querySelector(".konami-toast")) return
+
+  if (!prefersReducedMotion()) {
+    const crt = document.createElement("div")
+    crt.className = "konami-crt"
+    crt.setAttribute("aria-hidden", "true")
+    document.body.appendChild(crt)
+    setTimeout(() => crt.remove(), 1300)
+  }
+
+  const toast = document.createElement("div")
+  toast.className = "konami-toast"
+  toast.setAttribute("role", "status")
+  toast.innerHTML =
+    '<span aria-hidden="true">▲▲▼▼◄►◄►BA</span> <strong>SECRET UNLOCKED</strong>' +
+    '<span class="konami-body">You found the dev console. ' +
+    '<a href="/docs/colophon">See how this site is built →</a></span>'
+  document.body.appendChild(toast)
+  requestAnimationFrame(() => toast.classList.add("is-visible"))
+
+  setTimeout(() => {
+    toast.classList.remove("is-visible")
+    setTimeout(() => toast.remove(), 400)
+  }, 6000)
+}
+
+function initKonami() {
+  let pos = 0
+  window.addEventListener("keydown", (event) => {
+    const key = event.key.length === 1 ? event.key.toLowerCase() : event.key
+    if (key === KONAMI[pos]) {
+      pos += 1
+      if (pos === KONAMI.length) {
+        pos = 0
+        triggerKonami()
+      }
+    } else {
+      pos = key === KONAMI[0] ? 1 : 0
+    }
+  })
+}
+
 function initHero() {
   const hero = document.getElementById("hero")
   if (!hero) return
@@ -523,4 +579,7 @@ function initHero() {
   initScrollspy()
 }
 
-document.addEventListener("DOMContentLoaded", initHero)
+document.addEventListener("DOMContentLoaded", () => {
+  initHero()
+  initKonami()
+})

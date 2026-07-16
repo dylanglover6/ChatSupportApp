@@ -262,6 +262,63 @@ button:disabled {
   transform: none;
 }
 
+/* Konami code easter egg */
+.konami-crt {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--accent-glow) 0,
+    var(--accent-glow) 2px,
+    transparent 2px,
+    transparent 4px
+  );
+  animation: konami-flicker 1.3s steps(2, end) forwards;
+}
+@keyframes konami-flicker {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  20% { opacity: 0.15; }
+  35% { opacity: 0.9; }
+  50% { opacity: 0.1; }
+  70% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+.konami-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translate(-50%, 20px);
+  z-index: 201;
+  max-width: min(92vw, 440px);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 18px;
+  background: var(--bg-raised);
+  border: 2px solid var(--accent);
+  box-shadow: 4px 4px 0 var(--accent-dim);
+  color: var(--text);
+  font-family: var(--font-mono-terminal);
+  font-size: 18px;
+  line-height: 1.35;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.konami-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.konami-toast strong {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.03em;
+}
+.konami-toast a { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .konami-toast { transition: opacity 0.3s ease; transform: translate(-50%, 0); }
+}
+
 .scanlines {
   position: absolute;
   inset: 0;
