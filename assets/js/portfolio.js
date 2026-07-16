@@ -108,40 +108,66 @@ function runScrambleReveal(letters, onComplete) {
   }, totalDuration + SCRAMBLE_TICK_MS)
 }
 
-function initScrollScramble(letters) {
-  const hero = document.getElementById("hero")
-  if (!hero) return
-
+function initScrollScramble(headline, letters) {
   let visible = true
   let scrambleTimer = null
+  let pendingTimeouts = []
 
-  function startScrambling() {
+  function clearPending() {
+    pendingTimeouts.forEach(clearTimeout)
+    pendingTimeouts = []
+  }
+
+  function ensureTicking() {
     if (scrambleTimer) return
-    letters.forEach((letter) => {
-      letter.el.classList.remove("is-resolved")
-      letter.el.classList.add("is-scrambled")
-    })
     scrambleTimer = setInterval(() => {
       letters.forEach((letter) => {
-        letter.el.textContent = randomBinary()
+        if (letter.el.classList.contains("is-scrambled")) {
+          letter.el.textContent = randomBinary()
+        }
       })
     }, SCRAMBLE_TICK_MS)
   }
 
-  function stopScrambling() {
-    if (!scrambleTimer) return
-    clearInterval(scrambleTimer)
-    scrambleTimer = null
+  function startScrambling() {
+    clearPending()
+    ensureTicking()
 
     let cursor = 0
     letters.forEach((letter) => {
       cursor += STAGGER_MIN_MS + Math.random() * (STAGGER_MAX_MS - STAGGER_MIN_MS)
-      setTimeout(() => {
-        letter.el.textContent = letter.char
-        letter.el.classList.remove("is-scrambled")
-        letter.el.classList.add("is-resolved")
-      }, cursor)
+      pendingTimeouts.push(
+        setTimeout(() => {
+          letter.el.classList.remove("is-resolved")
+          letter.el.classList.add("is-scrambled")
+        }, cursor),
+      )
     })
+  }
+
+  function stopScrambling() {
+    clearPending()
+
+    let cursor = 0
+    letters.forEach((letter) => {
+      cursor += STAGGER_MIN_MS + Math.random() * (STAGGER_MAX_MS - STAGGER_MIN_MS)
+      pendingTimeouts.push(
+        setTimeout(() => {
+          letter.el.textContent = letter.char
+          letter.el.classList.remove("is-scrambled")
+          letter.el.classList.add("is-resolved")
+        }, cursor),
+      )
+    })
+
+    pendingTimeouts.push(
+      setTimeout(() => {
+        if (scrambleTimer) {
+          clearInterval(scrambleTimer)
+          scrambleTimer = null
+        }
+      }, cursor + SCRAMBLE_TICK_MS),
+    )
   }
 
   const observer = new IntersectionObserver(
@@ -156,10 +182,10 @@ function initScrollScramble(letters) {
         }
       })
     },
-    { threshold: 0 },
+    { rootMargin: "-15% 0px 0px 0px", threshold: 0 },
   )
 
-  observer.observe(hero)
+  observer.observe(headline)
 }
 
 function triggerWhipGlitch(letter) {
@@ -487,7 +513,7 @@ function initHero() {
     runScrambleReveal(letters, () => {
       initPhysics(headline, letters, isMobileMode())
       runCursorSequence(headline, subline)
-      initScrollScramble(letters)
+      initScrollScramble(headline, letters)
     })
     initParallax(hero)
   }
