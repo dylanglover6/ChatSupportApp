@@ -812,6 +812,62 @@ textarea { min-height: 96px; resize: vertical; }
 .hero-clouds {
   pointer-events: none;
 }
+
+/* Interactive hero grid mini-game */
+.hero-grid-cells {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.grid-cell {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-dim);
+  border-radius: 0;
+  color: var(--accent);
+  font-family: var(--font-mono-terminal);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  animation: grid-cell-in 0.25s ease-out;
+}
+.grid-cell:hover { background: var(--accent); color: var(--bg); transform: none; }
+.grid-cell.is-hit {
+  background: var(--accent);
+  color: var(--bg);
+  transform: scale(1.4);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+@keyframes grid-cell-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.hero-score {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 3;
+  padding: 6px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .grid-cell { animation: none; }
+}
 .hero-shape {
   position: absolute;
   background: var(--accent-dim);
@@ -827,6 +883,13 @@ textarea { min-height: 96px; resize: vertical; }
   padding: 0 24px;
   max-width: 900px;
   z-index: 2;
+  /* Let clicks in the empty hero area fall through to the interactive grid cells
+     below; re-enable pointer events only on the actually-interactive children. */
+  pointer-events: none;
+}
+.hero-headline,
+.hero-subline {
+  pointer-events: auto;
 }
 
 .hero-headline {

@@ -505,7 +505,7 @@ const KONAMI = [
   "a",
 ]
 
-function triggerKonami() {
+function revealSecret(innerHtml) {
   if (document.querySelector(".konami-toast")) return
 
   if (!prefersReducedMotion()) {
@@ -519,10 +519,7 @@ function triggerKonami() {
   const toast = document.createElement("div")
   toast.className = "konami-toast"
   toast.setAttribute("role", "status")
-  toast.innerHTML =
-    '<span aria-hidden="true">▲▲▼▼◄►◄►BA</span> <strong>SECRET UNLOCKED</strong>' +
-    '<span class="konami-body">You found the dev console. ' +
-    '<a href="/docs/colophon">See how this site is built →</a></span>'
+  toast.innerHTML = innerHtml
   document.body.appendChild(toast)
   requestAnimationFrame(() => toast.classList.add("is-visible"))
 
@@ -530,6 +527,112 @@ function triggerKonami() {
     toast.classList.remove("is-visible")
     setTimeout(() => toast.remove(), 400)
   }, 6000)
+}
+
+function triggerKonami() {
+  revealSecret(
+    '<span aria-hidden="true">▲▲▼▼◄►◄►BA</span> <strong>SECRET UNLOCKED</strong>' +
+      '<span class="konami-body">You found the dev console. ' +
+      '<a href="/docs/colophon">See how this site is built →</a></span>',
+  )
+}
+
+const GRID_CELL_PX = 40
+const GRID_SPAWN_MS = 750
+const GRID_CELL_LIFE_MS = 2600
+const GRID_MAX_CELLS = 6
+const GRID_SECRET_SCORE = 15
+
+function initHeroGrid(hero) {
+  if (prefersReducedMotion() || isMobileMode()) return
+
+  const layer = document.createElement("div")
+  layer.className = "hero-grid-cells"
+  layer.setAttribute("aria-hidden", "true")
+  hero.appendChild(layer)
+
+  const scoreEl = document.createElement("div")
+  scoreEl.className = "hero-score"
+  scoreEl.hidden = true
+  hero.appendChild(scoreEl)
+
+  let score = parseInt(localStorage.getItem("dg-grid-score") || "0", 10)
+  if (Number.isNaN(score)) score = 0
+  let secretShown = score >= GRID_SECRET_SCORE
+
+  function renderScore() {
+    if (score > 0) {
+      scoreEl.hidden = false
+      scoreEl.textContent = `SCORE ${String(score).padStart(3, "0")}`
+    }
+  }
+  renderScore()
+
+  function spawn() {
+    if (layer.childElementCount >= GRID_MAX_CELLS) return
+    const cols = Math.floor(hero.clientWidth / GRID_CELL_PX)
+    const rows = Math.floor(hero.clientHeight / GRID_CELL_PX)
+    if (cols < 3 || rows < 3) return
+
+    const cell = document.createElement("button")
+    cell.type = "button"
+    cell.className = "grid-cell"
+    cell.tabIndex = -1
+    cell.setAttribute("aria-hidden", "true")
+    cell.textContent = randomBinary()
+    cell.style.left = `${Math.floor(Math.random() * cols) * GRID_CELL_PX}px`
+    cell.style.top = `${Math.floor(Math.random() * rows) * GRID_CELL_PX}px`
+
+    const life = setTimeout(() => cell.remove(), GRID_CELL_LIFE_MS)
+    cell.addEventListener("pointerdown", (event) => {
+      event.preventDefault()
+      clearTimeout(life)
+      cell.classList.add("is-hit")
+      setTimeout(() => cell.remove(), 200)
+
+      score += 1
+      try {
+        localStorage.setItem("dg-grid-score", String(score))
+      } catch (e) {
+        // storage unavailable (private mode) — score just won't persist
+      }
+      renderScore()
+
+      if (!secretShown && score >= GRID_SECRET_SCORE) {
+        secretShown = true
+        revealSecret(
+          '<strong>GRID CRACKED</strong>' +
+            '<span class="konami-body">Fastest fingers in Tier III. ' +
+            '<a href="/docs">Reward: dig into DylanDocs →</a></span>',
+        )
+      }
+    })
+
+    layer.appendChild(cell)
+  }
+
+  let timer = null
+  let inView = false
+
+  function sync() {
+    if (inView && !document.hidden) {
+      if (!timer) timer = setInterval(spawn, GRID_SPAWN_MS)
+    } else if (timer) {
+      clearInterval(timer)
+      timer = null
+      layer.replaceChildren()
+    }
+  }
+
+  new IntersectionObserver(
+    (entries) => {
+      inView = entries[0].isIntersecting
+      sync()
+    },
+    { threshold: 0.1 },
+  ).observe(hero)
+
+  document.addEventListener("visibilitychange", sync)
 }
 
 function initKonami() {
@@ -572,6 +675,7 @@ function initHero() {
       initScrollScramble(headline, letters)
     })
     initParallax(hero)
+    initHeroGrid(hero)
   }
 
   revealSublineContainer(subline)
