@@ -1,22 +1,22 @@
 [
   %{
     name: "SupportBot / DylanDocs",
-    tagline: "You're looking at it — Phoenix LiveView + Ollama, see DylanDocs for the case study.",
-    stack: ["Elixir", "Phoenix LiveView", "Ecto/PostgreSQL", "Ollama"],
+    tagline: "You're looking at it — an AI support platform in Phoenix LiveView with RAG-style KB search. See DylanDocs for the case study.",
+    stack: ["Elixir", "Phoenix LiveView", "Ecto/PostgreSQL", "Claude API"],
     github: "https://github.com/dylanglover6/ChatSupportApp",
     live: nil
   },
   %{
-    name: "TODO(dylan): Project Name",
-    tagline: "TODO(dylan): one-line description of what this project does.",
-    stack: ["TODO(dylan)"],
-    github: nil,
+    name: "Plot Twist",
+    tagline: "A mobile-first MERN app for temporary, scratch-to-reveal invite links — animated reveals, expiring share links, and calendar integration.",
+    stack: ["React", "Node/Express", "MongoDB"],
+    github: "https://github.com/dylanglover6/PlotTwist",
     live: nil
   },
   %{
-    name: "TODO(dylan): Project Name",
-    tagline: "TODO(dylan): one-line description of what this project does.",
-    stack: ["TODO(dylan)"],
+    name: "PromptCoach",
+    tagline: "An AI coaching tool that scores, explains, and rewrites your prompts against a real rubric — with Learn and Practice modes.",
+    stack: ["React", "Azure Functions", "Claude API"],
     github: nil,
     live: nil
   }

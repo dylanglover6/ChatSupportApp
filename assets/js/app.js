@@ -24,9 +24,22 @@ Hooks.WidgetPath = {
     this.report()
     this.reportOnNavigate = () => this.report()
     window.addEventListener("phx:page-loading-stop", this.reportOnNavigate)
+
+    // Open the widget in place when something outside it asks (e.g. the hero "Chat" link).
+    this.openFromEvent = () => this.pushEvent("open")
+    window.addEventListener("dylanbot:open", this.openFromEvent)
+
+    // Remember once the visitor has opened DylanBot so the first-visit badge stops nagging.
+    this.handleEvent("dylanbot_opened", () => {
+      try { window.localStorage.setItem("dylanbot_greeted", "1") } catch (_) {}
+    })
+    let greeted = false
+    try { greeted = window.localStorage.getItem("dylanbot_greeted") === "1" } catch (_) {}
+    if (greeted) this.pushEvent("dismiss_greeting")
   },
   destroyed() {
     window.removeEventListener("phx:page-loading-stop", this.reportOnNavigate)
+    window.removeEventListener("dylanbot:open", this.openFromEvent)
   },
   report() {
     this.pushEvent("path_changed", { path: window.location.pathname })
@@ -75,6 +88,36 @@ function initMobileNav() {
     if (e.key === "Escape") closeMenu()
   })
 }
+
+// Any element marked [data-open-widget] opens the DylanBot widget in place instead of
+// navigating (the hero "Chat" link keeps its href as a no-JS fallback).
+document.addEventListener("click", (e) => {
+  const trigger = e.target.closest("[data-open-widget]")
+  if (trigger) {
+    e.preventDefault()
+    window.dispatchEvent(new CustomEvent("dylanbot:open"))
+  }
+})
+
+// Collapsible left nav. State lives on <html> (applied pre-paint by an inline script
+// in the root layout) and persists in localStorage. Delegated so it survives LiveView
+// navigations without re-binding.
+function setNavCollapsed(collapsed) {
+  document.documentElement.classList.toggle("nav-collapsed", collapsed)
+  try {
+    window.localStorage.setItem("dg-nav-collapsed", collapsed ? "1" : "0")
+  } catch (e) {}
+}
+
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-nav-collapse]")) {
+    e.preventDefault()
+    setNavCollapsed(true)
+  } else if (e.target.closest("[data-nav-expand]")) {
+    e.preventDefault()
+    setNavCollapsed(false)
+  }
+})
 
 document.addEventListener("DOMContentLoaded", () => {
   setActiveNav()

@@ -3,15 +3,25 @@ defmodule SupportBot.KB.Loader do
 
   @category_order ["Start Here", "Skills", "Projects", "Career", "Personal", "Meta"]
 
-  def all do
-    kb_dir()
-    |> Path.join("*.md")
-    |> Path.wildcard()
-    |> Enum.map(&load_doc/1)
-    |> Enum.sort_by(&{category_rank(&1.category), &1.order, &1.title})
+  @doc """
+  Lists KB docs. Hidden docs (frontmatter `hidden: true`) are excluded from the `/docs`
+  browser and prev/next nav, but included when `include_hidden: true` — that's how the
+  bot can read the unlisted Easter-eggs page while it stays out of the docs index.
+  """
+  def all(opts \\ []) do
+    docs =
+      kb_dir()
+      |> Path.join("*.md")
+      |> Path.wildcard()
+      |> Enum.map(&load_doc/1)
+
+    docs = if Keyword.get(opts, :include_hidden, false), do: docs, else: Enum.reject(docs, & &1.hidden)
+
+    Enum.sort_by(docs, &{category_rank(&1.category), &1.order, &1.title})
   end
 
-  def get_by_slug(slug), do: Enum.find(all(), &(&1.slug == slug))
+  # Resolve any slug (including hidden pages) so `/docs/:slug` and `[[slug]]` links still work.
+  def get_by_slug(slug), do: Enum.find(all(include_hidden: true), &(&1.slug == slug))
 
   def categories do
     all()
@@ -42,6 +52,7 @@ defmodule SupportBot.KB.Loader do
       title: Map.get(front, "title", "Untitled"),
       category: Map.get(front, "category", "Uncategorized"),
       order: front |> Map.get("order", "0") |> String.to_integer(),
+      hidden: Map.get(front, "hidden", "false") == "true",
       summary: Map.get(front, "summary", ""),
       body: body,
       html: html,

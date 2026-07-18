@@ -11,17 +11,28 @@ defmodule SupportBotWeb.Router do
     plug :put_secure_browser_headers
   end
 
-  # Stamp a stable, random per-session id used as the rate-limit actor key. Not
-  # security-sensitive on its own — just a spam/abuse throttle handle.
-  defp put_visitor_id(conn, _opts) do
-    case Plug.Conn.get_session(conn, :visitor_id) do
-      nil ->
-        id = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
-        Plug.Conn.put_session(conn, :visitor_id, id)
+  # A visit "session" handle: a random visitor id plus a rolling last-seen timestamp,
+  # both in the signed session cookie. On every request we refresh last-seen; if the
+  # visitor has been idle longer than @visit_ttl_seconds (a late refresh, or reopening
+  # the page after a while), we rotate the id. Chat conversations and support tickets
+  # are keyed on this id, so rotating it starts them fresh — while quick refreshes
+  # within the window keep the same session. Also the rate-limit actor key.
+  @visit_ttl_seconds 30 * 60
 
-      _ ->
+  defp put_visitor_id(conn, _opts) do
+    now = System.system_time(:second)
+    id = Plug.Conn.get_session(conn, :visitor_id)
+    seen_at = Plug.Conn.get_session(conn, :visitor_seen_at)
+
+    conn =
+      if is_binary(id) and is_integer(seen_at) and now - seen_at <= @visit_ttl_seconds do
         conn
-    end
+      else
+        new_id = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+        Plug.Conn.put_session(conn, :visitor_id, new_id)
+      end
+
+    Plug.Conn.put_session(conn, :visitor_seen_at, now)
   end
 
   scope "/", SupportBotWeb do
@@ -31,6 +42,7 @@ defmodule SupportBotWeb.Router do
     live "/chat", ChatLive
     live "/support", TicketLive.Index
     live "/support/:id", TicketLive.Show
+    live "/status/:token", StatusLive
     live "/docs", KBLive.Index
     live "/docs/:slug", KBLive.Show
 

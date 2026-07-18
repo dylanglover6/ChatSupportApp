@@ -1,10 +1,11 @@
 # Deploying to dylanglover.com (Azure, cheap-and-simple)
 
 One small Azure VM running Postgres + this app's Elixir release under systemd, with
-Caddy in front for automatic HTTPS. No Ollama in production — `AI.Client` already
-degrades to its deterministic fallback when Ollama is unreachable, so DylanBot keeps
-working, just without a live local model. That's the whole cost/complexity tradeoff:
-one box, no managed database, no container registry, no CI.
+Caddy in front for automatic HTTPS. DylanBot's "brain" is a separate decision: by default
+there is **no live LLM in production** and `AI.Client` runs its deterministic fallback, but
+you can point it at a hosted model instead — see **§7 (Live LLM options)** and **§8
+(Switching providers & the Ollama question)** below. The rest is the whole cost/complexity
+tradeoff: one box, no managed database, no container registry, no CI.
 
 Everything here is a runbook for *you* to run — none of it was executed on your behalf
 (provisioning costs money and needs your Azure login).
@@ -162,10 +163,77 @@ sudo systemctl restart support_bot
 
 Worth scripting once you're tired of typing this by hand — not set up yet.
 
+## 7. DylanBot's brain — live LLM options
+
+`SupportBot.AI.Client` is the single boundary for every model call, and it already returns
+a deterministic, KB-grounded **fallback** whenever the live call fails. So the site never
+breaks no matter which option you pick — the only question is what answers DylanBot gives.
+The status dot in the widget already shows which one served the reply (`:ollama`/live vs
+`:fallback`).
+
+| Option | Cost | What it takes | Notes |
+|---|---|---|---|
+| **A. No live LLM** | $0 | Set `LLM_PROVIDER=fallback` | Canned, KB-grounded answers via the fallback. Always works, zero latency risk, no API key. Fine for a portfolio; just not "real AI." |
+| **B. Hosted Claude API** *(default — this is what ships)* | ~pennies/month at this traffic | An `ANTHROPIC_API_KEY` secret (`LLM_PROVIDER=anthropic`) | Real answers. Ships with **Claude Haiku 4.5** (~$1 in / $5 out per 1M tokens — verify current pricing); a handful of short chats is cents/month. |
+| **C. Other hosted open-model API** (Groq, Together, OpenRouter, …) | cheap, pay-per-token | An API key + a small new adapter in `AI.Client` | Same integration shape as B; some (e.g. Groq) are very fast. Would slot in as a third `provider()` branch. |
+| **D. Self-host Ollama on the VM** | "free" inference | A much bigger/GPU VM (`LLM_PROVIDER=ollama`) | The dev adapter, already in the code. Impractical on the B1s/B2s box — `llama3.2` needs RAM the cheap box doesn't have and CPU inference is slow (you saw ~4.5s just to cold-load locally). Only if you size way up. Not recommended for the cheap-and-simple path. |
+
+**Recommendation:** ship with **B** (Claude Haiku) — it's wired and is the launch default;
+fall back to **A** (`LLM_PROVIDER=fallback`) any time you want to run key-free.
+
+### Wiring up Option B — already implemented
+
+`AI.Client.chat/4` now dispatches on `LLM_PROVIDER` (`anthropic` | `ollama` | `fallback`),
+keeping Ollama as the local-dev adapter and adding the Anthropic path alongside it. Elixir
+has no official Anthropic SDK, so the hosted call is raw HTTP via `Req` — the same shape the
+Ollama call uses (`https://api.anthropic.com/v1/messages`, `x-api-key` +
+`anthropic-version: 2023-06-01` headers, system prompt in the top-level `system` field,
+`messages` user/assistant only, required `max_tokens`, parse `body["content"] |>
+List.first() |> Map.get("text")`). Any non-200/error still returns the deterministic
+fallback, so the site never breaks if the key/budget/network is down. To go live, just set
+the env vars — no code change:
+
+```
+# .env
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+# ANTHROPIC_MODEL=claude-haiku-4-5   # optional override; this is the default
+```
+
+## 8. Switching providers & the Ollama question
+
+**Should you remove the Ollama references if you switch providers? No — don't do a blanket
+find-and-delete.** Both halves below are now **done** in the codebase; this section records
+what was changed and why.
+
+**Code — Ollama kept as the dev adapter, provider made configurable.** Ollama is genuinely
+useful for *local dev*: free, offline, no API key, no per-token cost. `AI.Client.chat/4`
+now selects the adapter from `LLM_PROVIDER` (`ollama` | `anthropic` | `fallback`), defaulting
+to `ollama` in dev; prod sets `anthropic`. The Ollama-specific internals were generalized to
+be provider-neutral: the live-answer status atom is `:live` (was `:ollama`),
+`ollama_reachable?/0` → `llm_reachable?/0`, and the widget assign `@ollama_status` →
+`@llm_status`.
+
+**User-facing copy — updated to match what prod actually serves.** These strings used to say
+or imply "powered by Ollama," which is misleading now that prod runs Claude. They now
+describe reality ("Claude API in production, Ollama in local dev"):
+
+- `lib/support_bot_web/controllers/page_html/home.html.heex` — footer (now "Built with
+  Elixir & Phoenix LiveView")
+- `priv/projects.exs` — the project card `stack` (now `"Claude API"`)
+- `priv/kb/colophon.md`, `priv/kb/project-support-platform.md`,
+  `priv/kb/skills-tooling.md`, `priv/kb/skills-support.md` — the model prose
+- `priv/repo/seeds.exs` — the sample chat message
+
+Rule of thumb (applied): **keep Ollama in code as the dev adapter, generalize the naming, and
+rewrite only the visitor-facing copy** so a recruiter reading the live site sees an accurate
+description of what's actually answering them.
+
 ## What you're intentionally not getting
 
 No CI/CD (deploys are manual, above), no managed Postgres (self-hosted on the same box,
 so back it up yourself — `pg_dump` on a cron is enough for a portfolio site), no Ollama
-in production (DylanBot runs in fallback mode live), no zero-downtime deploys (`systemctl
-restart` drops connections briefly), no autoscaling. All reasonable to skip for a
-low-traffic personal site; revisit if that stops being true.
+in production (DylanBot runs on the Claude API live, with the deterministic fallback as a
+safety net), no zero-downtime deploys (`systemctl restart` drops connections briefly), no
+autoscaling. All reasonable to skip for a low-traffic personal site; revisit if that stops
+being true.

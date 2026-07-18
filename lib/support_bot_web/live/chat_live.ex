@@ -20,7 +20,7 @@ defmodule SupportBotWeb.ChatLive do
       |> assign(:messages, messages)
       |> assign(:sources, sources_from_messages(messages))
       |> assign(:message, "")
-      |> assign(:loading, false)
+      |> assign(:thinking, false)
       |> assign(:show_ticket_form, false)
       |> assign(:created_ticket, nil)
       |> assign(:visitor_id, visitor_id)
@@ -48,6 +48,14 @@ defmodule SupportBotWeb.ChatLive do
      |> assign(:active_agent_name, agent_name)}
   end
 
+  # The background reply finished; the message itself already arrived via {:new_message}.
+  def handle_info({:reply_ready, sources, _status}, socket) do
+    {:noreply,
+     socket
+     |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+     |> assign(:thinking, false)}
+  end
+
   @impl true
   def handle_event("send", %{"message" => message}, socket) do
     message = String.trim(message)
@@ -63,6 +71,9 @@ defmodule SupportBotWeb.ChatLive do
            :error,
            "You're sending messages a bit too fast — give it a few seconds."
          )}
+
+      contact_intent?(message) ->
+        open_contact_form(socket, message)
 
       true ->
         deliver(socket, message)
@@ -112,6 +123,27 @@ defmodule SupportBotWeb.ChatLive do
     end
   end
 
+  # When a visitor asks to reach Dylan directly, skip the AI and open the ticket form.
+  defp open_contact_form(socket, message) do
+    conversation_id = socket.assigns.conversation.id
+    user = Chat.add_message(conversation_id, "user", message)
+    Tickets.maybe_reopen_for_conversation(conversation_id)
+
+    reply =
+      "Sure — I can pass a message straight to Dylan. Fill out the form and he'll follow up directly."
+
+    assistant = Chat.add_message(conversation_id, "assistant", reply)
+
+    {:noreply,
+     socket
+     |> assign(:messages, socket.assigns.messages ++ [user, assistant])
+     |> assign(:message, "")
+     |> assign(:show_ticket_form, true)}
+  end
+
+  @contact_intent ~r/leave (him )?(a )?(message|note)|message (for|to) dylan|contact (support|dylan|him)|get in touch|reach (out to )?dylan|talk to (a person|a human|dylan|him)|speak (to|with) dylan|(a |talk to a )?human( agent| support)?/i
+  defp contact_intent?(message), do: Regex.match?(@contact_intent, message)
+
   defp deliver(socket, message) do
     conversation_id = socket.assigns.conversation.id
     user = Chat.add_message(conversation_id, "user", message)
@@ -124,19 +156,34 @@ defmodule SupportBotWeb.ChatLive do
        |> assign(:message, "")
        |> assign(:show_ticket_form, false)}
     else
-      snippets = Search.search(message)
-      sources = to_source_maps(snippets)
-      history = Chat.list_messages(conversation_id)
-      {response, _status} = Client.chat(message, history, snippets, "/chat")
-      assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+      # The AI call can take 15-20s, so run it off the LiveView process and show a
+      # "thinking" indicator meanwhile. The assistant message reaches us over PubSub
+      # (Chat.add_message broadcasts); this task just signals completion + sources.
+      reply_to = self()
+
+      Task.start(fn ->
+        {sources, status} = generate_reply(conversation_id, message)
+        send(reply_to, {:reply_ready, sources, status})
+      end)
 
       {:noreply,
        socket
-       |> assign(:messages, socket.assigns.messages ++ [user, assistant])
-       |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+       |> assign(:messages, socket.assigns.messages ++ [user])
        |> assign(:message, "")
+       |> assign(:thinking, true)
        |> assign(:show_ticket_form, false)}
     end
+  end
+
+  defp generate_reply(conversation_id, message) do
+    snippets = Search.search(message)
+    sources = to_source_maps(snippets)
+    history = Chat.list_messages(conversation_id)
+    {response, status} = Client.chat(message, history, snippets, "/chat")
+    Chat.add_message(conversation_id, "assistant", response, sources)
+    {sources, status}
+  rescue
+    _ -> {[], :fallback}
   end
 
   defp create_ticket(socket, attrs) do
@@ -183,9 +230,7 @@ defmodule SupportBotWeb.ChatLive do
             or just say hi and I'll take it from there.
           </div>
           <div :for={message <- @messages} class={"message #{message.role}"}>
-            {if message.role == "assistant",
-              do: DocLinks.render(message.content),
-              else: message.content}
+            <span class="message-body" phx-no-format>{if message.role == "assistant", do: DocLinks.render(message.content), else: message.content}</span>
             <div :if={message.sources != []} class="sources">
               <.link
                 :for={source <- message.sources}
@@ -197,6 +242,9 @@ defmodule SupportBotWeb.ChatLive do
               <button type="button" class="mini-button success" phx-click="issue_solved">This solved my issue</button>
               <button type="button" class="mini-button danger" phx-click="show_ticket_form">I'm still having problems</button>
             </div>
+          </div>
+          <div :if={@thinking} class="message assistant thinking" aria-label="DylanBot is thinking">
+            <span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
           </div>
         </div>
 
@@ -230,7 +278,9 @@ defmodule SupportBotWeb.ChatLive do
         <p class="muted">
           In a production version, a confirmation summary would be emailed to the customer.
         </p>
-        <.link class="button primary" navigate={~p"/support/#{@created_ticket.id}"}>View Ticket</.link>
+        <.link class="button primary" navigate={~p"/status/#{@created_ticket.public_token}"}>
+          Check ticket status →
+        </.link>
       </section>
 
       <div

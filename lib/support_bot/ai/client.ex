@@ -1,14 +1,52 @@
 defmodule SupportBot.AI.Client do
-  @moduledoc "Ollama chat client with a deterministic fallback for demos."
+  @moduledoc """
+  Single boundary for DylanBot's chat calls, behind a configurable provider.
+
+  `LLM_PROVIDER` selects the adapter: `ollama` (local dev, default), `anthropic`
+  (hosted Claude in production), or `fallback` (deterministic, no live model).
+  Every provider path falls through to the same deterministic fallback on any
+  error, so the site never breaks no matter which one is configured.
+  """
 
   alias SupportBot.AI.{PageContext, Prompts}
 
   @doc """
-  Sends a chat turn to the local Ollama model, grounded in DylanDocs snippets and
+  Sends a chat turn to the configured model, grounded in DylanDocs snippets and
   the visitor's current page. Returns `{content, status}` where `status` is
-  `:ollama` or `:fallback`, so callers can show whether a live model answered.
+  `:live` (a hosted/local model answered) or `:fallback`, so callers can show
+  whether a live model served the reply.
   """
+  # Keep only the most recent turns in the prompt — long histories are the main driver
+  # of slow local inference (every token in the context is re-processed each call).
+  @history_window 8
+  # Cap generated tokens so verbose models can't run for 20s+ on a short answer.
+  @num_predict 256
+  # Cheapest hosted option for a portfolio; override with ANTHROPIC_MODEL.
+  @anthropic_model "claude-haiku-4-5"
+  @anthropic_max_tokens 1024
+
   def chat(user_message, history, doc_snippets, path \\ "/") do
+    recent_history =
+      history
+      |> Enum.take(-@history_window)
+      |> Enum.map(&Map.take(&1, [:role, :content]))
+
+    case provider() do
+      :anthropic -> anthropic_chat(user_message, recent_history, doc_snippets, path)
+      :ollama -> ollama_chat(user_message, recent_history, doc_snippets, path)
+      :fallback -> {fallback_response(user_message, doc_snippets), :fallback}
+    end
+  end
+
+  defp provider do
+    case System.get_env("LLM_PROVIDER") do
+      "anthropic" -> :anthropic
+      "fallback" -> :fallback
+      _ -> :ollama
+    end
+  end
+
+  defp ollama_chat(user_message, recent_history, doc_snippets, path) do
     model = System.get_env("OLLAMA_MODEL", "llama3.2")
 
     messages =
@@ -16,24 +54,98 @@ defmodule SupportBot.AI.Client do
         %{role: "system", content: Prompts.system_prompt()},
         %{role: "system", content: context_message(doc_snippets, path)}
       ] ++
-        Enum.map(history, &Map.take(&1, [:role, :content])) ++
+        recent_history ++
         [%{role: "user", content: user_message}]
 
     case Req.post("http://localhost:11434/api/chat",
-           json: %{model: model, messages: messages, stream: false},
-           receive_timeout: 20_000,
+           json: %{
+             model: model,
+             messages: messages,
+             stream: false,
+             # Keep the model resident between messages so we don't pay reload latency.
+             keep_alive: "30m",
+             options: %{num_predict: @num_predict}
+           },
+           receive_timeout: 30_000,
            retry: false
          ) do
       {:ok, %{status: 200, body: %{"message" => %{"content" => content}}}} ->
-        {content, :ollama}
+        {content, :live}
 
       _ ->
         {fallback_response(user_message, doc_snippets), :fallback}
     end
   end
 
-  @doc "Quick reachability check for the widget's status dot — not used for the chat call itself."
-  def ollama_reachable? do
+  # Elixir has no official Anthropic SDK, so this is raw HTTP via Req — same shape
+  # as the Ollama call. The system prompt goes in the top-level `system` field
+  # (not a `role: "system"` message), `messages` is user/assistant only, and
+  # `max_tokens` is required. See DEPLOY.md §7.
+  defp anthropic_chat(user_message, recent_history, doc_snippets, path) do
+    api_key = System.get_env("ANTHROPIC_API_KEY")
+    model = System.get_env("ANTHROPIC_MODEL", @anthropic_model)
+    system = Prompts.system_prompt() <> "\n\n" <> context_message(doc_snippets, path)
+    messages = to_anthropic_messages(recent_history, user_message)
+
+    result =
+      if api_key do
+        Req.post("https://api.anthropic.com/v1/messages",
+          headers: [
+            {"x-api-key", api_key},
+            {"anthropic-version", "2023-06-01"}
+          ],
+          json: %{
+            model: model,
+            max_tokens: @anthropic_max_tokens,
+            system: system,
+            messages: messages
+          },
+          receive_timeout: 30_000,
+          retry: false
+        )
+      else
+        :no_key
+      end
+
+    with {:ok, %{status: 200, body: %{"content" => blocks}}} <- result,
+         %{"text" => text} when is_binary(text) <- List.first(blocks) do
+      {text, :live}
+    else
+      _ -> {fallback_response(user_message, doc_snippets), :fallback}
+    end
+  end
+
+  # Anthropic requires user/assistant roles only and a leading user turn. Map
+  # agent replies to assistant, drop internal/system messages, and trim any
+  # leading assistant turns so the sequence starts with the visitor.
+  defp to_anthropic_messages(recent_history, user_message) do
+    recent_history
+    |> Enum.map(&%{role: normalize_role(&1.role), content: &1.content})
+    |> Enum.filter(&(&1.role in ["user", "assistant"]))
+    |> Enum.drop_while(&(&1.role == "assistant"))
+    |> Kernel.++([%{role: "user", content: user_message}])
+  end
+
+  defp normalize_role("assistant"), do: "assistant"
+  defp normalize_role("agent"), do: "assistant"
+  defp normalize_role("user"), do: "user"
+  defp normalize_role(_), do: "system"
+
+  @doc """
+  Quick reachability check for the widget's status dot — not used for the chat
+  call itself. For the hosted provider this reports whether a key is configured
+  (avoiding a billed request just to light the dot); for Ollama it pings the
+  local server.
+  """
+  def llm_reachable? do
+    case provider() do
+      :anthropic -> System.get_env("ANTHROPIC_API_KEY") not in [nil, ""]
+      :ollama -> ollama_reachable?()
+      :fallback -> false
+    end
+  end
+
+  defp ollama_reachable? do
     case Req.get("http://localhost:11434/api/tags", receive_timeout: 1_000, retry: false) do
       {:ok, %{status: 200}} -> true
       _ -> false
@@ -54,7 +166,8 @@ defmodule SupportBot.AI.Client do
       conversation_summary: String.slice(text, 0, 900),
       steps_tried: "See chatbot history. The assistant used DylanDocs sources: #{source_titles}.",
       likely_cause: infer_likely_cause(combined),
-      missing_information: "The specific question Dylan should follow up on, and the best way to reach the visitor back.",
+      missing_information:
+        "The specific question Dylan should follow up on, and the best way to reach the visitor back.",
       priority: detect_priority(combined),
       category: detect_category(combined),
       support_level: support_level,

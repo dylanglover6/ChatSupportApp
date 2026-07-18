@@ -263,7 +263,7 @@ defmodule SupportBotWeb.TicketLive.Show do
                 }
                 class={"message #{message.role}"}
               >
-                {message.content}
+                <span class="message-body" phx-no-format>{message.content}</span>
               </div>
             </div>
             <form phx-submit="send_agent_chat" class="widget-input-row">
@@ -364,7 +364,7 @@ defmodule SupportBotWeb.TicketLive.Show do
     ~H"""
     <div class={"message #{@message.role}"} style="margin-bottom: 10px;">
       <strong class="muted small">{String.capitalize(@message.role)}</strong>
-      <p>{@message.content}</p>
+      <p class="message-body">{@message.content}</p>
     </div>
     """
   end
@@ -412,7 +412,7 @@ defmodule SupportBotWeb.TicketLive.Show do
     ~H"""
     <div class="message agent" style="margin-bottom: 10px;">
       <strong class="muted small">Live chat — {@reply.author_name}</strong>
-      <p>{@reply.body}</p>
+      <p class="message-body">{@reply.body}</p>
     </div>
     """
   end

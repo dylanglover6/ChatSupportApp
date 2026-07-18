@@ -36,6 +36,24 @@ defmodule SupportBot.Tickets do
     |> Repo.preload([:assigned_agent, :events, :replies, conversation: :messages])
   end
 
+  @doc """
+  Looks up a ticket by its public capability token for the visitor-facing status
+  page. Read-only, returns nil if the token doesn't match. Preloads the pieces the
+  status page shows (agent, events, replies) — but never internal notes are exposed
+  by the page itself.
+  """
+  def get_ticket_by_token(token) when is_binary(token) and token != "" do
+    case Repo.get_by(Ticket, public_token: token) do
+      nil -> nil
+      ticket -> Repo.preload(ticket, [:assigned_agent, :events, :replies])
+    end
+  end
+
+  def get_ticket_by_token(_), do: nil
+
+  defp gen_public_token,
+    do: 12 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+
   @doc "Loads a ticket only if it's visible to `visitor_id` (own or mock); else nil."
   def get_visible_ticket(id, visitor_id) do
     Ticket
@@ -71,7 +89,8 @@ defmodule SupportBot.Tickets do
         "assigned_agent_id" => agent.id,
         "assignment_reason" => reason,
         "kb_sources" => sources,
-        "visitor_id" => conversation.visitor_id
+        "visitor_id" => conversation.visitor_id,
+        "public_token" => gen_public_token()
       })
 
     Repo.transaction(fn ->
