@@ -200,6 +200,25 @@ ANTHROPIC_API_KEY=sk-ant-...
 # ANTHROPIC_MODEL=claude-haiku-4-5   # optional override; this is the default
 ```
 
+### Cost controls (Pass 1 of `plans/04-PLAN-security.md`)
+
+Because the hosted provider bills per token, live model calls are budget-gated in
+`AI.Client.chat/5`; over any limit it degrades to the deterministic fallback (free,
+on-brand) instead of billing Claude:
+
+- **Per-actor daily cap** — 100 live calls / actor / 24h (`RateLimiter` `:llm_daily`),
+  where an actor is `visitor_id + client IP`. A single visitor can't sit under the
+  30s burst limit and run up the bill all day.
+- **Global daily ceiling** — 2,000 live calls / 24h across all actors
+  (`RateLimiter` `:llm_global`). A hard backstop on the monthly bill even under a
+  distributed flood. Tune both in `lib/support_bot/rate_limiter.ex` (`@limits`).
+- **Bounded input** — visitor messages are capped at 2,000 chars before reaching the
+  model (output is already capped at `@anthropic_max_tokens 1024`, history at 8 turns).
+
+**Also set an Anthropic Console budget alert** (Console → Billing → usage limits) as a
+belt-and-suspenders backstop *outside* the app, so a runaway is noticed even if the
+in-app ceiling has a bug. The in-app caps and the Console alert are independent.
+
 ## 8. Switching providers & the Ollama question
 
 **Should you remove the Ollama references if you switch providers? No — don't do a blanket

@@ -9,12 +9,18 @@ defmodule SupportBot.AI.Client do
   """
 
   alias SupportBot.AI.{PageContext, Prompts}
+  alias SupportBot.RateLimiter
 
   @doc """
   Sends a chat turn to the configured model, grounded in DylanDocs snippets and
   the visitor's current page. Returns `{content, status}` where `status` is
   `:live` (a hosted/local model answered) or `:fallback`, so callers can show
   whether a live model served the reply.
+
+  `actor` is the caller's rate-limit key (see `SupportBotWeb.RateLimit`). When set
+  and the hosted provider is over its per-actor daily cap — or the site is over its
+  global daily ceiling — the call degrades to the deterministic fallback instead of
+  billing Claude. `nil` skips the cap (used for internal/non-visitor calls).
   """
   # Keep only the most recent turns in the prompt — long histories are the main driver
   # of slow local inference (every token in the context is re-processed each call).
@@ -24,19 +30,48 @@ defmodule SupportBot.AI.Client do
   # Cheapest hosted option for a portfolio; override with ANTHROPIC_MODEL.
   @anthropic_model "claude-haiku-4-5"
   @anthropic_max_tokens 1024
+  # Hard cap on visitor input before it reaches the model — bounds both prompt cost
+  # and stored row size. Callers should trim to this too; enforced here as a backstop.
+  @max_message_chars 2000
 
-  def chat(user_message, history, doc_snippets, path \\ "/") do
+  def max_message_chars, do: @max_message_chars
+
+  def chat(user_message, history, doc_snippets, path \\ "/", actor \\ nil) do
+    user_message = String.slice(user_message, 0, @max_message_chars)
+
     recent_history =
       history
       |> Enum.take(-@history_window)
       |> Enum.map(&Map.take(&1, [:role, :content]))
 
     case provider() do
-      :anthropic -> anthropic_chat(user_message, recent_history, doc_snippets, path)
-      :ollama -> ollama_chat(user_message, recent_history, doc_snippets, path)
-      :fallback -> {fallback_response(user_message, doc_snippets), :fallback}
+      :anthropic ->
+        if within_llm_budget?(actor) do
+          anthropic_chat(user_message, recent_history, doc_snippets, path)
+        else
+          {fallback_response(user_message, doc_snippets), :fallback}
+        end
+
+      :ollama ->
+        ollama_chat(user_message, recent_history, doc_snippets, path)
+
+      :fallback ->
+        {fallback_response(user_message, doc_snippets), :fallback}
     end
   end
+
+  # Charges the actor's daily cap first (short-circuiting so a blocked actor never
+  # consumes global budget), then the global ceiling. Either being spent flips this
+  # call to fallback. `nil` actor (internal callers) only checks the global ceiling.
+  defp within_llm_budget?(actor) do
+    actor_within_daily_cap?(actor) and global_within_daily_cap?()
+  end
+
+  defp actor_within_daily_cap?(nil), do: true
+  defp actor_within_daily_cap?(actor), do: RateLimiter.check(:llm_daily, actor) == :ok
+
+  defp global_within_daily_cap?,
+    do: RateLimiter.check(:llm_global, RateLimiter.global_actor()) == :ok
 
   defp provider do
     case System.get_env("LLM_PROVIDER") do

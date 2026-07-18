@@ -17,8 +17,19 @@ defmodule SupportBot.RateLimiter do
   # {action, limit (max hits), window in ms}
   @limits %{
     chat: {12, 30_000},
-    ticket: {5, 600_000}
+    ticket: {5, 600_000},
+    # Cost containment for the paid Claude API (see plans/04-PLAN-security.md, Pass 1):
+    # a per-actor daily cap on live model calls, plus a single global daily ceiling
+    # that backstops the monthly bill even under a distributed flood. Over either
+    # limit, `AI.Client.chat/4` degrades to the deterministic fallback instead of
+    # billing a request.
+    llm_daily: {100, 86_400_000},
+    llm_global: {2_000, 86_400_000}
   }
+
+  @global_actor "__global__"
+
+  def global_actor, do: @global_actor
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)

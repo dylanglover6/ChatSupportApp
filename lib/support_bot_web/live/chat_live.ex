@@ -58,7 +58,7 @@ defmodule SupportBotWeb.ChatLive do
 
   @impl true
   def handle_event("send", %{"message" => message}, socket) do
-    message = String.trim(message)
+    message = message |> String.trim() |> String.slice(0, Client.max_message_chars())
 
     cond do
       message == "" ->
@@ -160,9 +160,10 @@ defmodule SupportBotWeb.ChatLive do
       # "thinking" indicator meanwhile. The assistant message reaches us over PubSub
       # (Chat.add_message broadcasts); this task just signals completion + sources.
       reply_to = self()
+      actor = socket.assigns.rate_actor
 
       Task.start(fn ->
-        {sources, status} = generate_reply(conversation_id, message)
+        {sources, status} = generate_reply(conversation_id, message, actor)
         send(reply_to, {:reply_ready, sources, status})
       end)
 
@@ -175,11 +176,11 @@ defmodule SupportBotWeb.ChatLive do
     end
   end
 
-  defp generate_reply(conversation_id, message) do
+  defp generate_reply(conversation_id, message, actor) do
     snippets = Search.search(message)
     sources = to_source_maps(snippets)
     history = Chat.list_messages(conversation_id)
-    {response, status} = Client.chat(message, history, snippets, "/chat")
+    {response, status} = Client.chat(message, history, snippets, "/chat", actor)
     Chat.add_message(conversation_id, "assistant", response, sources)
     {sources, status}
   rescue

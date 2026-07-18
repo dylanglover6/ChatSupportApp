@@ -157,7 +157,7 @@ defmodule SupportBotWeb.WidgetLive do
   end
 
   defp do_send(socket, message) do
-    message = String.trim(message)
+    message = message |> String.trim() |> String.slice(0, Client.max_message_chars())
 
     cond do
       message == "" ->
@@ -212,9 +212,10 @@ defmodule SupportBotWeb.WidgetLive do
       # signals completion so we can stop the spinner and record sources/status.
       reply_to = self()
       path = socket.assigns.current_path
+      actor = socket.assigns.rate_actor
 
       Task.start(fn ->
-        {sources, status} = generate_reply(conversation_id, message, path)
+        {sources, status} = generate_reply(conversation_id, message, path, actor)
         send(reply_to, {:reply_ready, sources, status})
       end)
 
@@ -226,11 +227,11 @@ defmodule SupportBotWeb.WidgetLive do
     end
   end
 
-  defp generate_reply(conversation_id, message, path) do
+  defp generate_reply(conversation_id, message, path, actor) do
     snippets = Search.search(message)
     sources = to_source_maps(snippets)
     history = Chat.list_messages(conversation_id)
-    {response, status} = Client.chat(message, history, snippets, path)
+    {response, status} = Client.chat(message, history, snippets, path, actor)
     Chat.add_message(conversation_id, "assistant", response, sources)
     {sources, status}
   rescue
@@ -364,8 +365,11 @@ defmodule SupportBotWeb.WidgetLive do
             Heads up: this support desk is a portfolio demo — the ticket it creates is
             simulated and won't actually email Dylan. To really reach him, email
             <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
-            or message him on
-            <a href="https://www.linkedin.com/in/dylanglover6" target="_blank" rel="noopener noreferrer">LinkedIn</a>.
+            or message him on <a
+              href="https://www.linkedin.com/in/dylanglover6"
+              target="_blank"
+              rel="noopener noreferrer"
+            >LinkedIn</a>.
           </p>
           <form phx-submit="create_ticket">
             <input
