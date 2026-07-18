@@ -11,9 +11,11 @@ summary: Who Dylan is, how these docs are organized, and how to get help fast.
 Welcome to DylanDocs — documentation about Dylan Glover, embedded inside the same
 Phoenix app that showcases his work.
 
-> TODO(dylan): a short "who I am" paragraph for this landing page. A couple of
-> sentences is enough — the deeper version lives in
-> [About Dylan](/docs/about-dylan).
+I'm a Technical Support Lead in Austin, TX with 7+ years turning ambiguous customer
+problems into lasting fixes — and, since a UT Austin full-stack bootcamp back in 2017, a
+software builder too. This site is where those two halves meet: it's a working AI support
+platform I built from scratch. The [About Dylan](/docs/about-dylan) page has the
+beyond-the-resume version.
 
 ## How these docs are organized
 

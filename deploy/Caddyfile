@@ -1,3 +1,16 @@
-dylanglover.com {
+# Shared VM Caddyfile — single source of truth for /etc/caddy/Caddyfile on the box.
+# This repo (Portfolio) owns it; other projects do NOT carry their own Caddy config.
+# See plans/unified-deployment-plan.md.
+
+# Portfolio + DylanBot (Phoenix release on :4000)
+dylanglover.com, www.dylanglover.com {
 	reverse_proxy 127.0.0.1:4000
 }
+
+# Plot Twist (Express + built React SPA on :3000, deployed onto the same VM)
+plottwist.dylanglover.com {
+	reverse_proxy 127.0.0.1:3000
+}
+
+# PromptCoach is hosted separately on Azure Static Web Apps (promptcoach.dylanglover.com
+# via CNAME) — it is intentionally NOT proxied here.

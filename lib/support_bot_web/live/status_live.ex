@@ -105,7 +105,7 @@ defmodule SupportBotWeb.StatusLive do
     ~H"""
     <div class="message agent" style="margin-bottom: 10px;">
       <strong class="muted small">{@reply.author_name} · live chat</strong>
-      <p>{@reply.body}</p>
+      <p class="message-body">{@reply.body}</p>
     </div>
     """
   end

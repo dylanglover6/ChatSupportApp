@@ -100,7 +100,7 @@ if Repo.aggregate(Ticket, :count) == 0 do
     "Question about the support platform's architecture",
     [
       {"user", "This support desk is pretty slick — what's actually powering the live chat takeover?"},
-      {"assistant", "Great question! It's Phoenix LiveView + Phoenix PubSub — see [[project-support-platform]] for the full write-up, including the Ollama integration and the takeover mechanism."},
+      {"assistant", "Great question! It's Phoenix LiveView + Phoenix PubSub — see [[project-support-platform]] for the full write-up, including the LLM integration and the takeover mechanism."},
       {"user", "Nice, I'd love to hear more about the tradeoffs from Dylan directly if he has a minute."}
     ],
     :new

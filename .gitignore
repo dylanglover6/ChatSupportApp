@@ -18,3 +18,9 @@
 *.cer
 *.pem
 ca-bundle.crt
+
+# Personal working files kept local-only (out of the public repo)
+/plans/*.pdf
+/plans/*.JPG
+/plans/*.jpg
+/plans/IMG_*

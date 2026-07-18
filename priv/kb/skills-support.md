@@ -65,8 +65,9 @@ generally being the person who can make a complex product make sense out loud.
 
 The newest and fastest-growing part of the toolkit — and the reason this platform exists.
 Dylan has built LLM-assisted support tooling hands-on: RAG-style knowledge base search,
-automatic ticket triage and categorization, and LLM-generated reply suggestions, wired to a
-local Ollama model with a graceful deterministic fallback. It's support-domain AI built by
+automatic ticket triage and categorization, and LLM-generated reply suggestions, wired to
+the Claude API in production (a local Ollama model in development) with a graceful
+deterministic fallback. It's support-domain AI built by
 someone who actually knows the support domain. Full write-up in
 [This Platform](/docs/project-support-platform).
 

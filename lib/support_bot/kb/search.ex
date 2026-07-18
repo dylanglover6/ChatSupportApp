@@ -8,7 +8,8 @@ defmodule SupportBot.KB.Search do
   def search(query, limit \\ 3) do
     tokens = tokenize(query)
 
-    Loader.all()
+    # include_hidden: the bot can surface the unlisted Easter-eggs page when asked.
+    Loader.all(include_hidden: true)
     |> Enum.map(&score_article(&1, tokens))
     |> Enum.filter(fn {score, _article} -> score > 0 end)
     |> Enum.sort_by(fn {score, _article} -> score end, :desc)

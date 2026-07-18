@@ -34,9 +34,10 @@ also [Uses](/docs/uses) for the personal hardware/software setup.
 
 ## AI & cloud
 
-- **Ollama / local LLMs** — running `llama3.2` locally for DylanBot, with a deterministic
-  fallback so the app works with no model at all. See
-  [This Platform](/docs/project-support-platform) for why local was the right call.
+- **LLM integration (Claude API / Ollama)** — DylanBot runs on the Claude API in
+  production and a local `llama3.2` (via Ollama) in development, behind one swappable
+  client boundary, with a deterministic fallback so the app works with no model at all. See
+  [This Platform](/docs/project-support-platform) for why the boundary was the right call.
 - **RAG pipelines** — retrieval-augmented KB search feeding grounded context to the model.
 - **Microsoft Azure Fundamentals (AZ-900)** — in progress; this site is being deployed to
   Azure, so the certification and the practice are happening together.

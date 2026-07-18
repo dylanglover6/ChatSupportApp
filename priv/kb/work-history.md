@@ -48,6 +48,6 @@ right internal teams.
 
 ## Education & certifications
 
-- **Full Stack Web Development Bootcamp** — University of Texas at Austin
+- **Full Stack Web Development Bootcamp** — University of Texas at Austin (2017)
 - **Associate of General Studies** — Austin Community College
 - **Microsoft Azure Fundamentals (AZ-900)** — in progress

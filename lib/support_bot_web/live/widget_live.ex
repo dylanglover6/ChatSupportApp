@@ -21,10 +21,11 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:sources, sources_from_messages(messages))
      |> assign(:current_path, path)
      |> assign(:page_context, PageContext.for_path(path))
-     |> assign(:ollama_status, if(Client.ollama_reachable?(), do: :ok, else: :fallback))
+     |> assign(:llm_status, if(Client.llm_reachable?(), do: :ok, else: :fallback))
      |> assign(:open, false)
-     |> assign(:unread_count, 0)
+     |> assign(:unread_count, if(messages == [], do: 1, else: 0))
      |> assign(:message, "")
+     |> assign(:thinking, false)
      |> assign(:notice, nil)
      |> assign(:show_escalation_form, false)
      |> assign(:escalated_ticket, nil)
@@ -58,11 +59,43 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:active_agent_name, agent_name)}
   end
 
+  # Background reply finished; the message itself already arrived via {:new_message}.
+  def handle_info({:reply_ready, sources, status}, socket) do
+    {:noreply,
+     socket
+     |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+     |> assign(:llm_status, if(status == :live, do: :ok, else: :fallback))
+     |> assign(:thinking, false)}
+  end
+
   @impl true
   def handle_event("toggle", _params, socket) do
     open = !socket.assigns.open
-    socket = if open, do: assign(socket, :unread_count, 0), else: socket
+
+    socket =
+      if open,
+        do: socket |> assign(:unread_count, 0) |> push_event("dylanbot_opened", %{}),
+        else: socket
+
     {:noreply, assign(socket, :open, open)}
+  end
+
+  # Opened from outside the widget (e.g. the hero "Chat" link) without leaving the page.
+  def handle_event("open", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:open, true)
+     |> assign(:unread_count, 0)
+     |> push_event("dylanbot_opened", %{})}
+  end
+
+  # A returning visitor has already seen the first-visit greeting; clear the waiting badge.
+  def handle_event("dismiss_greeting", _params, socket) do
+    if socket.assigns.messages == [] and not socket.assigns.open do
+      {:noreply, assign(socket, :unread_count, 0)}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("close_on_escape", _params, socket) do
@@ -136,9 +169,30 @@ defmodule SupportBotWeb.WidgetLive do
           "Whoa there — you're sending messages a bit too fast. Give me a few seconds!"
         )
 
+      contact_intent?(message) ->
+        open_contact_form(socket, message)
+
       true ->
         deliver(socket, message)
     end
+  end
+
+  # When a visitor asks to reach Dylan directly, skip the AI and open the contact form.
+  defp open_contact_form(socket, message) do
+    conversation_id = socket.assigns.conversation.id
+    user = Chat.add_message(conversation_id, "user", message)
+    Tickets.maybe_reopen_for_conversation(conversation_id)
+
+    reply =
+      "Sure — I can pass a message straight to Dylan. Fill this out and he'll follow up directly."
+
+    assistant = Chat.add_message(conversation_id, "assistant", reply)
+
+    socket
+    |> assign(:messages, socket.assigns.messages ++ [user, assistant])
+    |> assign(:message, "")
+    |> assign(:notice, nil)
+    |> assign(:show_escalation_form, true)
   end
 
   defp deliver(socket, message) do
@@ -152,74 +206,121 @@ defmodule SupportBotWeb.WidgetLive do
       |> assign(:message, "")
       |> assign(:notice, nil)
     else
-      snippets = Search.search(message)
-      sources = to_source_maps(snippets)
-      history = Chat.list_messages(conversation_id)
-      {response, status} = Client.chat(message, history, snippets, socket.assigns.current_path)
-      assistant = Chat.add_message(conversation_id, "assistant", response, sources)
+      # The AI call can take 15-20s; run it off the LiveView process and show a
+      # "thinking" indicator meanwhile. The assistant message arrives over PubSub
+      # (Chat.add_message broadcasts, handled by {:new_message}); this task just
+      # signals completion so we can stop the spinner and record sources/status.
+      reply_to = self()
+      path = socket.assigns.current_path
 
-      unread = if socket.assigns.open, do: 0, else: socket.assigns.unread_count + 1
+      Task.start(fn ->
+        {sources, status} = generate_reply(conversation_id, message, path)
+        send(reply_to, {:reply_ready, sources, status})
+      end)
 
       socket
-      |> assign(:messages, socket.assigns.messages ++ [user, assistant])
-      |> assign(:sources, merge_sources(socket.assigns.sources, sources))
+      |> assign(:messages, socket.assigns.messages ++ [user])
       |> assign(:message, "")
+      |> assign(:thinking, true)
       |> assign(:notice, nil)
-      |> assign(:ollama_status, if(status == :ollama, do: :ok, else: :fallback))
-      |> assign(:unread_count, unread)
     end
+  end
+
+  defp generate_reply(conversation_id, message, path) do
+    snippets = Search.search(message)
+    sources = to_source_maps(snippets)
+    history = Chat.list_messages(conversation_id)
+    {response, status} = Client.chat(message, history, snippets, path)
+    Chat.add_message(conversation_id, "assistant", response, sources)
+    {sources, status}
+  rescue
+    _ -> {[], :fallback}
   end
 
   defp add_notice(socket, text), do: assign(socket, :notice, text)
 
+  @contact_intent ~r/leave (him )?(a )?(message|note)|message (for|to) dylan|contact (support|dylan|him)|get in touch|reach (out to )?dylan|talk to (a person|a human|dylan|him)|speak (to|with) dylan|(a |talk to a )?human( agent| support)?/i
+  defp contact_intent?(message), do: Regex.match?(@contact_intent, message)
+
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="dylanbot-widget" phx-hook="WidgetPath">
-      <button
-        type="button"
-        class="widget-fab"
-        phx-click="toggle"
-        aria-label={if @open, do: "Close DylanBot chat", else: "Open DylanBot chat"}
-      >
-        💬
-        <span :if={@unread_count > 0 and not @open} class="widget-unread-badge">
-          {if @unread_count > 9, do: "9+", else: @unread_count}
-        </span>
-      </button>
-
-      <section :if={@open} class="widget-panel" phx-window-keydown="close_on_escape" phx-key="Escape">
-        <header class="widget-header">
-          <span class="widget-title">
+    <div id="dylanbot-widget" class={["widget", @open && "is-open"]} phx-hook="WidgetPath">
+      <div class="widget-bar">
+        <button
+          type="button"
+          class="widget-bar-main"
+          phx-click="toggle"
+          aria-expanded={to_string(@open)}
+          aria-label={if @open, do: "Close DylanBot chat", else: "Open DylanBot chat"}
+        >
+          <span class="widget-bar-title">
             {if @agent_active, do: String.upcase(@active_agent_name || "AGENT"), else: "DYLANBOT"}
           </span>
           <span
             class={"widget-status-dot #{cond do
               @agent_active -> "is-live"
-              @ollama_status == :ok -> "is-ok"
+              @llm_status == :ok -> "is-ok"
               true -> "is-fallback"
             end}"}
             title={
               cond do
                 @agent_active -> "#{@active_agent_name} is live"
-                @ollama_status == :ok -> "Ollama reachable"
+                @llm_status == :ok -> "Live AI model"
                 true -> "Fallback mode"
               end
             }
           ></span>
-        </header>
+          <span :if={@unread_count > 0 and not @open} class="widget-unread-badge">
+            {if @unread_count > 9, do: "9+", else: @unread_count}
+          </span>
+        </button>
+        <.link
+          :if={@open}
+          navigate={~p"/chat"}
+          class="widget-bar-icon"
+          title="Open full chat"
+          aria-label="Open full chat"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            aria-hidden="true"
+          >
+            <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" />
+          </svg>
+        </.link>
+        <button
+          type="button"
+          class="widget-bar-toggle"
+          phx-click="toggle"
+          aria-label={if @open, do: "Close DylanBot chat", else: "Open DylanBot chat"}
+        >{if @open, do: "▼", else: "▲"}</button>
+      </div>
+
+      <section
+        :if={@open}
+        class="widget-panel"
+        phx-remove={
+          JS.transition({"widget-leaving", "widget-panel-in", "widget-panel-out"}, time: 180)
+        }
+        phx-window-keydown="close_on_escape"
+        phx-key="Escape"
+      >
         <p :if={@agent_active} class="widget-escalated">
           {@active_agent_name} has joined this chat — DylanBot is paused.
         </p>
 
         <div id="widget-chat-log" class="widget-messages" phx-hook="AutoScroll">
           <div :if={@messages == []} class="widget-message assistant">
-            Howdy! Ask me about Dylan's skills, projects, or this platform — or tap a suggestion below.
+            <span class="widget-message-body" phx-no-format>Howdy! Ask me about Dylan's skills, projects, or this platform — or tap a suggestion below.</span>
           </div>
           <div :for={message <- @messages} class={"widget-message #{message.role}"}>
-            {if message.role == "assistant",
-              do: DocLinks.render(message.content),
-              else: message.content}
+            <span class="widget-message-body" phx-no-format>{if message.role == "assistant", do: DocLinks.render(message.content), else: message.content}</span>
             <div :if={message.sources != []} class="sources">
               <.link
                 :for={source <- message.sources}
@@ -229,6 +330,13 @@ defmodule SupportBotWeb.WidgetLive do
                 {source["title"]}
               </.link>
             </div>
+          </div>
+          <div
+            :if={@thinking}
+            class="widget-message assistant thinking"
+            aria-label="DylanBot is thinking"
+          >
+            <span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
           </div>
         </div>
 
@@ -252,6 +360,13 @@ defmodule SupportBotWeb.WidgetLive do
         </div>
 
         <div :if={@show_escalation_form} class="widget-escalation-form">
+          <p class="widget-escalation-note">
+            Heads up: this support desk is a portfolio demo — the ticket it creates is
+            simulated and won't actually email Dylan. To really reach him, email
+            <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
+            or message him on
+            <a href="https://www.linkedin.com/in/dylanglover6" target="_blank" rel="noopener noreferrer">LinkedIn</a>.
+          </p>
           <form phx-submit="create_ticket">
             <input
               name="ticket[customer_name]"
@@ -293,12 +408,11 @@ defmodule SupportBotWeb.WidgetLive do
         </form>
 
         <footer class="widget-footer">
-          <.link navigate={~p"/chat"}>Open full chat</.link>
-          <span>·</span>
-          <.link navigate={~p"/docs"}>Browse DylanDocs</.link>
-          <span>·</span>
+          <div class="widget-footer-group">
+            <.link navigate={~p"/docs"}>DOCS</.link>
+          </div>
           <button type="button" class="widget-footer-link" phx-click="show_escalation_form">
-            Leave a message for Dylan
+            Contact Support
           </button>
         </footer>
       </section>

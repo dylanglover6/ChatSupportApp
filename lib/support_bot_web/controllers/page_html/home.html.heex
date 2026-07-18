@@ -12,9 +12,16 @@
       <span class="headline-line">My name is Dylan Glover.</span>
     </h1>
     <p class="hero-subline" data-subline>
-      <span data-subline-content>Thanks for stopping in — got a question? Just <a href={~p"/chat"} class="subline-chat-link" data-subline-chat>Chat</a>.</span>
+      <span data-subline-content>Thanks for stopping in — got a question? Just <a
+        href={~p"/chat"}
+        class="subline-chat-link"
+        data-subline-chat
+        data-open-widget
+      >Chat</a>.</span>
     </p>
-    <script>document.currentScript.previousElementSibling.style.visibility = "hidden"</script>
+    <script>
+      document.currentScript.previousElementSibling.style.visibility = "hidden"
+    </script>
   </div>
   <div class="hero-scanlines scanlines" aria-hidden="true"></div>
   <a href="#about" class="scroll-hint" aria-label="Scroll to About section">▼</a>
@@ -24,7 +31,13 @@
   <h2>About</h2>
   <div class="about-grid">
     <div class="about-avatar-wrap">
-      <img src="/images/headshot.jpg" alt="Dylan Glover" class="about-avatar" width="180" height="180" />
+      <img
+        src="/images/headshot.jpg"
+        alt="Dylan Glover"
+        class="about-avatar"
+        width="180"
+        height="180"
+      />
     </div>
     <div class="about-copy">
       <p>
@@ -98,7 +111,9 @@
   <h2>Resume</h2>
   <p>Want the short version? Grab the PDF.</p>
   <a class="btn btn-primary" href="/resume.pdf" download>Download Resume [PDF]</a>
-  <p><.link navigate={~p"/docs"} class="text-link">or read the extended version in DylanDocs</.link></p>
+  <p>
+    <.link navigate={~p"/docs"} class="text-link">or read the extended version in DylanDocs</.link>
+  </p>
 </section>
 
 <section id="docs-teaser" class="section docs-teaser-section reveal">
@@ -128,9 +143,9 @@ SEE ALSO
   <div class="contact-links">
     <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
     <a href="https://github.com/dylanglover6" target="_blank" rel="noopener noreferrer">GitHub</a>
-    <a href="#">TODO(dylan): LinkedIn URL</a>
+    <a href="https://www.linkedin.com/in/dylanglover6" target="_blank" rel="noopener noreferrer">LinkedIn</a>
   </div>
   <footer class="site-footer">
-    <p>Built with Phoenix LiveView + Ollama · © 2026 Dylan Glover</p>
+    <p>Built with Elixir &amp; Phoenix LiveView · © 2026 Dylan Glover</p>
   </footer>
 </section>
