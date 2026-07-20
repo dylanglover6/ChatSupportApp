@@ -3,7 +3,6 @@ defmodule SupportBotWeb.Endpoint do
 
   # `secure` is set only in prod (the dev server is plain http, where a secure-only
   # cookie would never be sent). `http_only` + `same_site: Lax` apply everywhere.
-  # See plans/04-PLAN-security.md, Pass 4.
   @session_options [
     store: :cookie,
     key: "_support_bot_key",

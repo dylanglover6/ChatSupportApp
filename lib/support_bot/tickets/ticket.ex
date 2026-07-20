@@ -2,8 +2,8 @@ defmodule SupportBot.Tickets.Ticket do
   @moduledoc """
   A support ticket escalated from a chat conversation.
 
-  PII posture (plans/04-PLAN-security.md, Pass 3): the only visitor PII stored is the
-  name/email typed into the escalation form, kept solely so a reply can be addressed.
+  PII posture: the only visitor PII stored is the name/email typed into the escalation
+  form, kept solely so a reply can be addressed.
   Nothing sensitive (no payment/credentials) is collected, the form disclaimer tells
   visitors the desk is a simulated demo, and the hourly `SupportBot.Cleanup` job prunes
   stale visitor-scoped rows. Field lengths and email shape are bounded in `changeset/2`.
@@ -66,9 +66,9 @@ defmodule SupportBot.Tickets.Ticket do
       :public_token
     ])
     |> validate_required([:customer_name, :customer_email, :title, :priority, :category, :status])
-    # Boundary hardening (plans/04-PLAN-security.md, Pass 3): the escalation form only
-    # enforces `required` client-side. Validate email shape and bound visitor-supplied
-    # lengths so oversized/garbage rows can't be persisted.
+    # Boundary hardening: the escalation form only enforces `required` client-side.
+    # Validate email shape and bound visitor-supplied lengths so oversized/garbage
+    # rows can't be persisted.
     |> validate_format(:customer_email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/,
       message: "must be a valid email address"
     )

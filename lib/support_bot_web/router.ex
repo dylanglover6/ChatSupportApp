@@ -35,7 +35,7 @@ defmodule SupportBotWeb.Router do
   # (nav pre-paint in root.html.heex, hero subline in home.html.heex), so we can
   # drop 'unsafe-inline' for scripts. All other resources are same-origin; the
   # LiveView socket needs ws:/wss: in connect-src. `@csp_nonce` is read by the
-  # templates. See plans/04-PLAN-security.md, Pass 4.
+  # templates.
   defp put_csp(conn, _opts) do
     nonce = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
 

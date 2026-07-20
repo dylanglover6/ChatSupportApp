@@ -8,8 +8,7 @@ summary: Support systems, APIs, infra, and the tools Dylan works with day to day
 
 # Tooling
 
-The day-to-day toolchain — support platforms, debugging tools, and infrastructure. See
-also [Uses](/docs/uses) for the personal hardware/software setup.
+The day-to-day toolchain — support platforms, debugging tools, and infrastructure.
 
 ## Support & ticketing systems
 

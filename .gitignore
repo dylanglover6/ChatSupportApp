@@ -35,3 +35,8 @@ ca-bundle.crt
 /.agents/
 /.claude/
 /skills-lock.json
+
+# AI-directed build docs — kept local-only, out of the public repo
+/CLAUDE.md
+/supportbot_codex_brief.md
+/plans/

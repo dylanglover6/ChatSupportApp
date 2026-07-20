@@ -41,8 +41,8 @@ defmodule SupportBot.MixProject do
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
       {:mdex, "~> 0.13"},
-      # Scans deps for known CVEs; run `mix deps.audit` before each release
-      # (plans/04-PLAN-security.md, Pass 5). Build-only, no runtime footprint.
+      # Scans deps for known CVEs; run `mix deps.audit` before each release.
+      # Build-only, no runtime footprint.
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end

@@ -163,9 +163,9 @@ sudo systemctl restart support_bot
 
 Worth scripting once you're tired of typing this by hand — not set up yet.
 
-**Before each release, audit dependencies** for known CVEs (plans/04-PLAN-security.md,
-Pass 5) — `mix_audit` is in `mix.exs`, so run it from a dev checkout (it's a build-only
-dep, not fetched by `--only prod`):
+**Before each release, audit dependencies** for known CVEs — `mix_audit` is in
+`mix.exs`, so run it from a dev checkout (it's a build-only dep, not fetched by
+`--only prod`):
 
 ```bash
 mix deps.audit   # fails/lists if any dependency has a known vulnerability
@@ -213,7 +213,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 # ANTHROPIC_MODEL=claude-haiku-4-5   # optional override; this is the default
 ```
 
-### Cost controls (Pass 1 of `plans/04-PLAN-security.md`)
+### Cost controls
 
 Because the hosted provider bills per token, live model calls are budget-gated in
 `AI.Client.chat/5`; over any limit it degrades to the deterministic fallback (free,
