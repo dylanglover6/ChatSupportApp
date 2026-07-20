@@ -1,10 +1,16 @@
 defmodule SupportBotWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :support_bot
 
+  # `secure` is set only in prod (the dev server is plain http, where a secure-only
+  # cookie would never be sent). `http_only` + `same_site: Lax` apply everywhere.
+  # See plans/04-PLAN-security.md, Pass 4.
   @session_options [
     store: :cookie,
     key: "_support_bot_key",
-    signing_salt: "supportbot"
+    signing_salt: "supportbot",
+    http_only: true,
+    same_site: "Lax",
+    secure: Mix.env() == :prod
   ]
 
   socket "/live", Phoenix.LiveView.Socket,

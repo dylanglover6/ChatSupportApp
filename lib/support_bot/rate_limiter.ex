@@ -24,7 +24,13 @@ defmodule SupportBot.RateLimiter do
     # limit, `AI.Client.chat/4` degrades to the deterministic fallback instead of
     # billing a request.
     llm_daily: {100, 86_400_000},
-    llm_global: {2_000, 86_400_000}
+    llm_global: {2_000, 86_400_000},
+    # Connection-level throttles (see plans/04-PLAN-security.md, Pass 2), keyed on
+    # client IP / actor. `request` guards raw HTML/asset page loads through the
+    # browser pipeline; `connect` guards LiveView socket mounts so a reconnect storm
+    # can't spin up unbounded processes. Both generous — a human never hits them.
+    request: {300, 60_000},
+    connect: {60, 60_000}
   }
 
   @global_actor "__global__"

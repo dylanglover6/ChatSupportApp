@@ -1,14 +1,76 @@
 defmodule SupportBotWeb.Router do
   use SupportBotWeb, :router
 
+  alias SupportBot.RateLimiter
+
   pipeline :browser do
     plug :accepts, ["html"]
+    plug :throttle_request
     plug :fetch_session
     plug :put_visitor_id
     plug :fetch_live_flash
     plug :put_root_layout, html: {SupportBotWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :put_csp
+  end
+
+  # A cheap per-IP throttle on raw page/asset loads — the app-level chat/ticket
+  # limiters don't cover crawlers or a small flood hammering HTML routes. Generous
+  # (see RateLimiter :request); over it we 429 without touching the session or DB.
+  defp throttle_request(conn, _opts) do
+    case RateLimiter.check(:request, client_ip(conn)) do
+      :ok ->
+        conn
+
+      {:error, :rate_limited, retry_after} ->
+        conn
+        |> Plug.Conn.put_resp_header("retry-after", Integer.to_string(retry_after))
+        |> Plug.Conn.send_resp(429, "Too many requests — slow down and try again shortly.")
+        |> Plug.Conn.halt()
+    end
+  end
+
+  # Content-Security-Policy with a per-request nonce for our two inline scripts
+  # (nav pre-paint in root.html.heex, hero subline in home.html.heex), so we can
+  # drop 'unsafe-inline' for scripts. All other resources are same-origin; the
+  # LiveView socket needs ws:/wss: in connect-src. `@csp_nonce` is read by the
+  # templates. See plans/04-PLAN-security.md, Pass 4.
+  defp put_csp(conn, _opts) do
+    nonce = 16 |> :crypto.strong_rand_bytes() |> Base.url_encode64(padding: false)
+
+    csp =
+      Enum.join(
+        [
+          "default-src 'self'",
+          "script-src 'self' 'nonce-#{nonce}'",
+          "style-src 'self' 'unsafe-inline'",
+          "img-src 'self' data:",
+          "font-src 'self'",
+          "connect-src 'self' ws: wss:",
+          "base-uri 'self'",
+          "form-action 'self'",
+          "frame-ancestors 'none'",
+          "object-src 'none'"
+        ],
+        "; "
+      )
+
+    conn
+    |> Plug.Conn.assign(:csp_nonce, nonce)
+    |> Plug.Conn.put_resp_header("content-security-policy", csp)
+  end
+
+  # Best-effort client IP: first x-forwarded-for entry when behind Caddy, else the
+  # socket peer. Mirrors SupportBotWeb.RateLimit.actor/2 for the LiveView side.
+  defp client_ip(conn) do
+    case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
+      [forwarded | _] ->
+        forwarded |> String.split(",") |> List.first() |> String.trim()
+
+      [] ->
+        conn.remote_ip |> :inet.ntoa() |> to_string()
+    end
   end
 
   # A visit "session" handle: a random visitor id plus a rolling last-seen timestamp,

@@ -26,6 +26,8 @@ defmodule SupportBotWeb do
       use Phoenix.LiveView,
         layout: {SupportBotWeb.Layouts, :app}
 
+      on_mount SupportBotWeb.ConnectThrottle
+
       unquote(html_helpers())
     end
   end
