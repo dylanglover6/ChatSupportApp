@@ -40,7 +40,10 @@ defmodule SupportBot.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:req, "~> 0.5"},
-      {:mdex, "~> 0.13"}
+      {:mdex, "~> 0.13"},
+      # Scans deps for known CVEs; run `mix deps.audit` before each release
+      # (plans/04-PLAN-security.md, Pass 5). Build-only, no runtime footprint.
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false}
     ]
   end
 

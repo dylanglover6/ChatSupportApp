@@ -163,6 +163,19 @@ sudo systemctl restart support_bot
 
 Worth scripting once you're tired of typing this by hand — not set up yet.
 
+**Before each release, audit dependencies** for known CVEs (plans/04-PLAN-security.md,
+Pass 5) — `mix_audit` is in `mix.exs`, so run it from a dev checkout (it's a build-only
+dep, not fetched by `--only prod`):
+
+```bash
+mix deps.audit   # fails/lists if any dependency has a known vulnerability
+```
+
+Other ops hardening already in place: the dedicated `support_bot` Postgres role owns
+only its own DB (least privilege, §3); `debug_errors` is dev-only so prod never leaks
+stack traces to visitors; and back up the DB with a `pg_dump` cron (see below) as
+data-loss/ransomware insurance.
+
 ## 7. DylanBot's brain — live LLM options
 
 `SupportBot.AI.Client` is the single boundary for every model call, and it already returns
