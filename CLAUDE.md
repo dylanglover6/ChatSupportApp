@@ -4,28 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-SupportBot is a Phoenix/LiveView portfolio MVP demonstrating an AI-powered support triage
-platform ("FlowDesk"): a customer chats with an AI troubleshooting assistant that searches a
-local Markdown knowledge base, escalates to a structured support ticket when it can't resolve
-the issue, and the ticket is auto-classified and auto-assigned to a mock support agent based on
-shift, specialty, workload, and team color. A manager dashboard shows agents and the ticket
-queue; each ticket detail page shows chat history, AI summaries, KB sources, timeline, and
-agent replies/notes.
+This repository is Dylan Glover's personal portfolio site **and** the flagship project it
+showcases, served from a single Phoenix/LiveView application. Visitors land on a dark,
+pixel-accented portfolio page, browse **DylanDocs** (documentation about Dylan — skills,
+projects, career, personal), chat with **DylanBot** (a page-aware assistant grounded in those
+docs) from any page, and — behind the scenes — **DylanSupport** is a working mock support desk
+that triages, classifies, and assigns whatever DylanBot can't resolve to a mock agent, live.
 
-**Read `plans/00-OVERVIEW.md` before making UI/branding changes.** There is an approved plan
-(`plans/00-OVERVIEW.md` → `01-PLAN-portfolio.md` → `02-PLAN-dylandocs-support.md`) to evolve
-this exact codebase in place into Dylan Glover's personal portfolio site: the FlowDesk
-knowledge base becomes "DylanDocs" (content about Dylan), the chatbot becomes "DylanBot"
-(page-aware, grounded in DylanDocs), and the manager dashboard becomes "DylanSupport" (with
-expertise levels, urgent escalation to L3 agents, simulated outbound email, and live PubSub
-chat takeover). The `SupportBot`/`support_bot_web` module namespace stays as-is — only
-user-facing strings and routes get rebranded. If asked to work on portfolio/docs/branding
-features, those plan files are the source of truth for design tokens, route map, and build
-order, not the current FlowDesk content described above.
+The support desk is a real Phoenix/LiveView/PubSub system, not a mockup: local keyword search
+standing in for RAG, a local Ollama model with a deterministic fallback, rule-based ticket
+classification and routing, and a live chat takeover between an agent view and a visitor's chat
+widget over two browser windows.
+
+The internal module namespace is `SupportBot` / `support_bot_web` (the app's original name);
+user-facing strings and routes use the DylanDocs / DylanBot / DylanSupport branding. The legacy
+`/kb` and `/tickets` routes permanently redirect to `/docs` and `/support`.
 
 ## Commands
 
-```powershell
+```bash
 # Install deps, set up assets, create/migrate/seed the database
 mix setup
 
@@ -46,7 +43,7 @@ mix ecto.migrate
 
 ### Verify a change
 
-```powershell
+```bash
 mix compile --warnings-as-errors
 mix test
 mix phx.server
@@ -83,24 +80,23 @@ Standard Phoenix context structure under `lib/support_bot/` (business logic, Ect
 
 - **`SupportBot.KB`** (`kb/loader.ex`, `kb/search.ex`) — reads Markdown files from `priv/kb/`
   at runtime, extracts title/slug/body, and does keyword-based scoring/search (no embeddings,
-  no vector DB — intentionally simple "RAG-style" story). Powers both the `/kb` browser and the
-  chat's context injection.
+  no vector DB — intentionally simple "RAG-style" story). Powers both the `/docs` browser and
+  the chat's context injection.
 - **`SupportBot.Chat`** (`chat.ex`, `chat/conversation.ex`, `chat/message.ex`) — persists
-  conversations and messages (`role`: user/assistant/system) with the KB sources used for that
-  turn. `ChatLive` (`live/chat_live.ex`) is the `/chat` page: on each user message it calls
+  conversations and messages (`role`: user/assistant/agent/system) with the KB sources used for
+  that turn. `ChatLive` (`live/chat_live.ex`) is the `/chat` page: on each user message it calls
   `KB.Search`, then `AI.Client.chat/4` with history + KB snippets, then persists both messages.
 - **`SupportBot.AI`** (`ai/client.ex`, `ai/prompts.ex`) — single boundary module for all model
   calls: general `chat/4`, `summarize_ticket/3` (turns a conversation into ticket fields),
   `agent_assist/2` (suggested reply/next-step/escalation for the agent view), plus rule-based
   `detect_category/1` and `detect_priority/1` used both by summarization and as an offline
-  fallback. Keep new AI-provider logic behind this module so swapping providers later
-  (OpenAI/Anthropic per the brief) is a config change, not a rewrite.
+  fallback. Keep new AI-provider logic behind this module so swapping providers later is a
+  config change, not a rewrite.
 - **`SupportBot.Agents`** (`agents.ex`, `agents/agent.ex`, `agents/schedule.ex`) — mock agents
   with `specialties`, `color`, and a `shift_start`/`shift_end` (`Time`). `Schedule.available?/2`
   handles overnight shifts that cross midnight.
 - **`SupportBot.Tickets`** (`tickets.ex`, `tickets/ticket.ex`, `tickets/ticket_event.ex`,
-  `tickets/ticket_reply.ex`, `tickets/assignment.ex`) — the orchestration layer (DylanSupport,
-  Phase 4):
+  `tickets/ticket_reply.ex`, `tickets/assignment.ex`) — the orchestration layer (DylanSupport):
   - `create_from_conversation/3` pulls the chat history, calls `AI.Client.summarize_ticket/3`
     for category/priority/support_level/urgent/summary fields, calls `Assignment.assign/4`, and
     inserts the ticket + `ticket_created`/`ticket_assigned` (+ `off_shift_assignment` if
@@ -144,22 +140,20 @@ Categories: `Docs`, `Projects`, `Hiring`, `General` — matched by regex in
 `AI.Client.detect_category/1` and expected by `Assignment.assign/4` (agent `specialties`), so
 keep them in sync if you add/rename a category.
 
-## MVP constraints (still apply per the original brief, `supportbot_codex_brief.md`)
+## Design and MVP constraints
 
-No real authentication, no real email sending, no external ticketing integrations, no
-embeddings/vector DB, no complex SLA rules. The portfolio-pivot plan (see above) explicitly
-carries forward "no real email, ever" — any "send email" feature must write a simulated,
-clearly-labeled timeline entry rather than adding an SMTP/mailer dependency.
+The app is intentionally scoped as a portfolio MVP: no real authentication, no real email
+sending, no external ticketing integrations, no embeddings/vector DB, no complex SLA rules. Any
+"send email" feature must write a simulated, clearly-labeled timeline entry rather than adding an
+SMTP/mailer dependency.
 
 **Never add a mailer/SMTP dependency** (e.g. Swoosh, Bamboo) to `mix.exs` — this is a hard
-constraint from the plan, not just a current gap. Simulated email is a `ticket_reply`/timeline
-entry, not a real send.
+constraint. Simulated email is a `ticket_reply`/timeline entry, not a real send.
 
-**All colors come from the CSS tokens in `app.css`** (the "Dark Arcade" custom properties
-defined in `plans/00-OVERVIEW.md` §4 — `--bg`, `--accent`, `--ok`/`--warn`/`--danger`, etc.).
-Never hardcode a hex/rgb color in a `.heex` template or component — reference a token instead
-so the design system stays consistent across the portfolio, docs, chat, and support desk.
-
-The `hallmark` skill advises on execution quality only (spacing, hierarchy, typography scale,
-contrast, motion); the design system in `plans/00-OVERVIEW.md` §4 is the source of truth for
-colors, fonts, and theme. Don't let a hallmark suggestion override a Dark Arcade token.
+**All colors come from the CSS tokens in `priv/static/assets/app.css`** (the "Dark Arcade"
+custom properties — `--bg`, `--accent`, `--ok`/`--warn`/`--danger`, etc.). Never hardcode a
+hex/rgb color in a `.heex` template or component — reference a token instead so the design
+system stays consistent across the portfolio, docs, chat, and support desk. `app.css` is the
+source of truth for colors, fonts, and theme; if a general execution-quality guideline (spacing,
+hierarchy, typography scale, contrast, motion) ever conflicts with a Dark Arcade token, the token
+wins.
