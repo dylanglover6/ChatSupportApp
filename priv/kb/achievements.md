@@ -23,6 +23,3 @@ Specifics over superlatives — what actually happened.
   knowledge to an AI product, not the other way around.
 - **Microsoft Azure Fundamentals (AZ-900)** — in progress, alongside actually deploying this
   site to Azure.
-
-> TODO(dylan): add anything else you're proud of — talks, open-source contributions, awards,
-> or specific wins from a role that deserve a callout here.

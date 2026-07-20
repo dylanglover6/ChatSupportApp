@@ -24,3 +24,14 @@ ca-bundle.crt
 /plans/*.JPG
 /plans/*.jpg
 /plans/IMG_*
+
+# OS / editor cruft
+.DS_Store
+
+# Dev-server logs
+*.log
+
+# Claude Code tooling — local dev aids, not part of the app
+/.agents/
+/.claude/
+/skills-lock.json

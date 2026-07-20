@@ -47,6 +47,3 @@ portfolio's traffic); local development runs a small **Ollama** model (`llama3.2
 is free, offline, and needs no API key. Because both sit behind the same boundary,
 switching providers is a config change, not a rewrite — and a deterministic, KB-grounded
 fallback covers any case where the live call fails.
-
-> TODO(dylan): add anything you want to say about what was hardest to build, what
-> you'd do differently, or what you're building next.

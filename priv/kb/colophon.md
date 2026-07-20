@@ -63,6 +63,3 @@ chat-and-support tool needs. Letting the requirements pick the language, then le
 by shipping, is the point: this platform is presented as the learning-by-shipping project
 it is, not as a claim of prior mastery. See [Languages](/docs/skills-languages) and
 [Frameworks](/docs/skills-frameworks) for the same framing.
-
-> TODO(dylan): add anything else about the build process, tools used to design or
-> build this site, or credits.
