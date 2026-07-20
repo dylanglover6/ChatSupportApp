@@ -1,4 +1,13 @@
 defmodule SupportBot.Tickets.Ticket do
+  @moduledoc """
+  A support ticket escalated from a chat conversation.
+
+  PII posture (plans/04-PLAN-security.md, Pass 3): the only visitor PII stored is the
+  name/email typed into the escalation form, kept solely so a reply can be addressed.
+  Nothing sensitive (no payment/credentials) is collected, the form disclaimer tells
+  visitors the desk is a simulated demo, and the hourly `SupportBot.Cleanup` job prunes
+  stale visitor-scoped rows. Field lengths and email shape are bounded in `changeset/2`.
+  """
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -57,7 +66,15 @@ defmodule SupportBot.Tickets.Ticket do
       :public_token
     ])
     |> validate_required([:customer_name, :customer_email, :title, :priority, :category, :status])
-    |> validate_format(:customer_email, ~r/@/)
+    # Boundary hardening (plans/04-PLAN-security.md, Pass 3): the escalation form only
+    # enforces `required` client-side. Validate email shape and bound visitor-supplied
+    # lengths so oversized/garbage rows can't be persisted.
+    |> validate_format(:customer_email, ~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      message: "must be a valid email address"
+    )
+    |> validate_length(:customer_name, max: 120)
+    |> validate_length(:customer_email, max: 160)
+    |> validate_length(:title, max: 200)
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:support_level, 1..3)
   end

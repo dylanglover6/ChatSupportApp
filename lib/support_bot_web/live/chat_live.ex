@@ -108,9 +108,14 @@ defmodule SupportBotWeb.ChatLive do
      |> assign(:created_ticket, nil)}
   end
 
-  def handle_event("create_ticket", %{"ticket" => attrs}, socket) do
-    case RateLimit.check(:ticket, socket.assigns.rate_actor) do
-      {:error, :rate_limited, _retry} ->
+  def handle_event("create_ticket", %{"ticket" => attrs} = params, socket) do
+    cond do
+      # A bot populated the hidden honeypot field — silently no-op (no AI/DB work),
+      # just dismiss the form so the bot can't tell it was rejected.
+      honeypot_filled?(params) ->
+        {:noreply, assign(socket, :show_ticket_form, false)}
+
+      match?({:error, :rate_limited, _}, RateLimit.check(:ticket, socket.assigns.rate_actor)) ->
         {:noreply,
          put_flash(
            socket,
@@ -118,7 +123,7 @@ defmodule SupportBotWeb.ChatLive do
            "You've submitted a lot just now — please try again in a few minutes."
          )}
 
-      :ok ->
+      true ->
         create_ticket(socket, attrs)
     end
   end
@@ -143,6 +148,8 @@ defmodule SupportBotWeb.ChatLive do
 
   @contact_intent ~r/leave (him )?(a )?(message|note)|message (for|to) dylan|contact (support|dylan|him)|get in touch|reach (out to )?dylan|talk to (a person|a human|dylan|him)|speak (to|with) dylan|(a |talk to a )?human( agent| support)?/i
   defp contact_intent?(message), do: Regex.match?(@contact_intent, message)
+
+  defp honeypot_filled?(params), do: String.trim(Map.get(params, "hp_url", "")) != ""
 
   defp deliver(socket, message) do
     conversation_id = socket.assigns.conversation.id
@@ -296,6 +303,14 @@ defmodule SupportBotWeb.ChatLive do
             <button type="button" class="icon-button" phx-click="hide_ticket_form">Close</button>
           </div>
           <form phx-submit="create_ticket">
+            <input
+              type="text"
+              name="hp_url"
+              class="hp-field"
+              tabindex="-1"
+              autocomplete="off"
+              aria-hidden="true"
+            />
             <input
               name="ticket[customer_name]"
               placeholder="Customer name"

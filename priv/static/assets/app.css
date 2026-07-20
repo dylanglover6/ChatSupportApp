@@ -1,4 +1,16 @@
 /* ==========================================================================
+   Honeypot — a hidden field bots fill and humans never see (spam guard).
+   Off-screen rather than display:none so form-filling bots still populate it.
+   ========================================================================== */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* ==========================================================================
    Fonts (self-hosted for an offline-safe local demo)
    ========================================================================== */
 @font-face {
