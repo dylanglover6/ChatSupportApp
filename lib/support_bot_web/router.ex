@@ -15,7 +15,7 @@ defmodule SupportBotWeb.Router do
     plug :put_csp
   end
 
-  # A cheap per-IP throttle on raw page/asset loads — the app-level chat/ticket
+  # A cheap per-IP throttle on raw page/asset loads; the app-level chat/ticket
   # limiters don't cover crawlers or a small flood hammering HTML routes. Generous
   # (see RateLimiter :request); over it we 429 without touching the session or DB.
   defp throttle_request(conn, _opts) do
@@ -26,7 +26,7 @@ defmodule SupportBotWeb.Router do
       {:error, :rate_limited, retry_after} ->
         conn
         |> Plug.Conn.put_resp_header("retry-after", Integer.to_string(retry_after))
-        |> Plug.Conn.send_resp(429, "Too many requests — slow down and try again shortly.")
+        |> Plug.Conn.send_resp(429, "Too many requests. Slow down and try again shortly.")
         |> Plug.Conn.halt()
     end
   end
@@ -77,7 +77,7 @@ defmodule SupportBotWeb.Router do
   # both in the signed session cookie. On every request we refresh last-seen; if the
   # visitor has been idle longer than @visit_ttl_seconds (a late refresh, or reopening
   # the page after a while), we rotate the id. Chat conversations and support tickets
-  # are keyed on this id, so rotating it starts them fresh — while quick refreshes
+  # are keyed on this id, so rotating it starts them fresh, while quick refreshes
   # within the window keep the same session. Also the rate-limit actor key.
   @visit_ttl_seconds 30 * 60
 
@@ -108,7 +108,7 @@ defmodule SupportBotWeb.Router do
     live "/docs", KBLive.Index
     live "/docs/:slug", KBLive.Show
 
-    # Legacy paths — permanent redirects to the renamed routes.
+    # Legacy paths: permanent redirects to the renamed routes.
     get "/tickets", PageController, :redirect_to_support
     get "/tickets/:id", PageController, :redirect_ticket_to_support
     get "/kb", PageController, :redirect_to_docs

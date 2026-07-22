@@ -9,7 +9,7 @@ summary: A mobile-first MERN app for temporary, scratch-to-reveal invite links.
 # Plot Twist
 
 **A mobile-first, full-stack MERN web app for sending temporary, scratch-to-reveal invite
-links** — for trips, parties, and any plan that deserves a little drama.
+links** for trips, parties, and any plan that deserves a little drama.
 
 | | |
 |---|---|
@@ -23,7 +23,7 @@ links** — for trips, parties, and any plan that deserves a little drama.
 
 Plot Twist turns an ordinary invitation into a moment. You build a reveal page, choose
 when it unlocks, and send a single link. The recipient first sees a locked teaser and a
-live countdown — then, at the unlock time, they scratch the screen to uncover where you're
+live countdown. Then, at the unlock time, they scratch the screen to uncover where you're
 taking them. The link is **temporary**: once it expires, the surprise is gone for good.
 
 - **3** reveal states, zero stored
@@ -33,7 +33,7 @@ taking them. The link is **temporary**: once it expires, the surprise is gone fo
 
 ## The core idea: state you derive, never store
 
-An invite is always in one of three states — **locked**, **revealed**, or **expired** —
+An invite is always in one of three states (**locked**, **revealed**, or **expired**),
 and I deliberately never persist that state. It's derived on the fly from two
 server-generated timestamps, `unlockAt` and `expiresAt`, compared against the current
 time. One small pure function is the single source of truth, which made the behavior
@@ -51,7 +51,7 @@ trivial to reason about and to unit-test at the exact boundaries.
 ## Architecture: one service, front to back
 
 In development the React app runs on Vite and proxies `/api` calls to Express. In
-production, Express serves both the built React bundle and the API from a single process —
+production, Express serves both the built React bundle and the API from a single process,
 so the whole app deploys as one unit, with no separate frontend host to wire up. Image
 search is proxied through the backend so the Unsplash API key never touches the browser.
 
@@ -78,21 +78,21 @@ end, all running on Node.
 | **MongoDB** (Atlas · Mongoose 8) | The database. Invites are persisted through Mongoose schemas that enforce field limits and validation at the data boundary. |
 | **Express** (v4) | The server. API routing, static hosting of the built client, and a centralized error layer that maps Mongoose errors to HTTP status codes. |
 | **React** (v19) | The UI. Component-driven, with a custom `useInvite` hook centralizing data loading and a shared reveal-state helper. |
-| **Node.js** (v20+) | The runtime beneath both the dev tooling and the production server — one language across the whole stack. |
+| **Node.js** (v20+) | The runtime beneath both the dev tooling and the production server, one language across the whole stack. |
 
 **Front-end supporting cast:** React Router v7 for client-side routing (`/`, `/create`,
 `/created/:id`, `/t/:id`, `/t/:id/more`); Tailwind v3 wired to CSS-variable design tokens;
 lucide-react for icons.
 
 **Build & quality:** Vite 7 · Vitest · ESLint 9 (flat config) · Prettier · nodemon ·
-concurrently · cross-env. The repo is an **npm-workspaces monorepo** — `client` and
+concurrently · cross-env. The repo is an **npm-workspaces monorepo**: `client` and
 `server` as separate workspaces under one install, one set of lint/format/test scripts.
 
 ### Why MERN?
 
 I'd worked with the MERN stack before, so it was the natural choice. Reaching for tools I
-already knew let me spend my time on the parts that make Plot Twist itself — the reveal
-timing and the scratch-to-reveal interaction — instead of relearning the plumbing. Running
+already knew let me spend my time on the parts that make Plot Twist itself (the reveal
+timing and the scratch-to-reveal interaction) instead of relearning the plumbing. Running
 a single JavaScript language from database queries to UI also kept the context switching
 low while building solo.
 
@@ -116,20 +116,20 @@ low while building solo.
 
 ## Feature highlights
 
-- **Scratch-to-reveal** — a canvas overlay you physically scratch away, with the image
+- **Scratch-to-reveal**: a canvas overlay you physically scratch away, with the image
   blurring into focus underneath as you go.
-- **Live countdown** — a per-second countdown to the unlock moment, with an emphasized
+- **Live countdown**: a per-second countdown to the unlock moment, with an emphasized
   final ten seconds.
-- **Add to calendar** — generates an `.ics` file on the fly so recipients can save the
+- **Add to calendar**: generates an `.ics` file on the fly so recipients can save the
   reveal.
-- **Image search** — search Unsplash for the reveal photo, proxied through the backend to
+- **Image search**: search Unsplash for the reveal photo, proxied through the backend to
   protect the key.
-- **Native sharing** — uses the Web Share API where available, falling back to
+- **Native sharing**: uses the Web Share API where available, falling back to
   copy-to-clipboard.
-- **Optional info page** — hosts can attach a secondary page for itineraries, addresses,
+- **Optional info page**: hosts can attach a secondary page for itineraries, addresses,
   or packing notes.
 
 ---
 
-_A solo full-stack MERN project — polished and deploy-ready. See also
+_A solo full-stack MERN project, polished and deploy-ready. See also
 [this platform](/docs/project-support-platform) and [PromptCoach](/docs/project-promptcoach)._

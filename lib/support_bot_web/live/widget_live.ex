@@ -131,7 +131,7 @@ defmodule SupportBotWeb.WidgetLive do
 
   def handle_event("create_ticket", %{"ticket" => attrs} = params, socket) do
     cond do
-      # A bot populated the hidden honeypot field — silently no-op and dismiss the
+      # A bot populated the hidden honeypot field, silently no-op and dismiss the
       # form so it can't tell the submission was dropped.
       honeypot_filled?(params) ->
         {:noreply, assign(socket, :show_escalation_form, false)}
@@ -140,7 +140,7 @@ defmodule SupportBotWeb.WidgetLive do
         {:noreply,
          add_notice(
            socket,
-           "You've created a lot of messages just now — please try again in a few minutes."
+           "You've created a lot of messages just now. Please try again in a few minutes."
          )}
 
       true ->
@@ -171,7 +171,7 @@ defmodule SupportBotWeb.WidgetLive do
       match?({:error, :rate_limited, _}, RateLimit.check(:chat, socket.assigns.rate_actor)) ->
         add_notice(
           socket,
-          "Whoa there — you're sending messages a bit too fast. Give me a few seconds!"
+          "Whoa there! You're sending messages a bit too fast. Give me a few seconds!"
         )
 
       contact_intent?(message) ->
@@ -189,7 +189,7 @@ defmodule SupportBotWeb.WidgetLive do
     Tickets.maybe_reopen_for_conversation(conversation_id)
 
     reply =
-      "Sure — I can pass a message straight to Dylan. Fill this out and he'll follow up directly."
+      "Sure! I can pass a message straight to Dylan. Fill this out and he'll follow up directly."
 
     assistant = Chat.add_message(conversation_id, "assistant", reply)
 
@@ -320,12 +320,12 @@ defmodule SupportBotWeb.WidgetLive do
         phx-key="Escape"
       >
         <p :if={@agent_active} class="widget-escalated">
-          {@active_agent_name} has joined this chat — DylanBot is paused.
+          {@active_agent_name} has joined this chat. DylanBot is paused.
         </p>
 
         <div id="widget-chat-log" class="widget-messages" phx-hook="AutoScroll">
           <div :if={@messages == []} class="widget-message assistant">
-            <span class="widget-message-body" phx-no-format>Howdy! Ask me about Dylan's skills, projects, or this platform — or tap a suggestion below.</span>
+            <span class="widget-message-body" phx-no-format>Howdy! Ask me about Dylan's skills, projects, or this platform, or tap a suggestion below.</span>
           </div>
           <div :for={message <- @messages} class={"widget-message #{message.role}"}>
             <span class="widget-message-body" phx-no-format>{if message.role == "assistant", do: DocLinks.render(message.content), else: message.content}</span>
@@ -363,13 +363,13 @@ defmodule SupportBotWeb.WidgetLive do
         <div :if={@notice} class="widget-notice" role="status">{@notice}</div>
 
         <div :if={@escalated_ticket} class="widget-escalated">
-          Message sent to Dylan —
-          <.link navigate={~p"/status/#{@escalated_ticket.public_token}"}>check its status →</.link>
+          Message sent to Dylan.
+          <.link navigate={~p"/status/#{@escalated_ticket.public_token}"}>Check its status →</.link>
         </div>
 
         <div :if={@show_escalation_form} class="widget-escalation-form">
           <p class="widget-escalation-note">
-            Heads up: this support desk is a portfolio demo — the ticket it creates is
+            Heads up: this support desk is a portfolio demo, so the ticket it creates is
             simulated and won't actually email Dylan. To really reach him, email
             <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
             or message him on <a

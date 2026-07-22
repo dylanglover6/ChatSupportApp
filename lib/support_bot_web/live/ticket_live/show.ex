@@ -113,7 +113,7 @@ defmodule SupportBotWeb.TicketLive.Show do
 
     {:noreply,
      socket
-     |> put_flash(:info, "Simulated email sent — not actually delivered.")
+     |> put_flash(:info, "Simulated email sent, not actually delivered.")
      |> assign(:show_email_form, false)
      |> reload(Tickets.get_ticket!(ticket.id))}
   end
@@ -181,7 +181,12 @@ defmodule SupportBotWeb.TicketLive.Show do
                 class="mini-button"
                 phx-click="close"
               >Close</button>
-              <button :if={@ticket.status in ["Resolved", "Closed"]} type="button" phx-click="reopen">Reopen</button>
+              <button
+                :if={@ticket.status in ["Resolved", "Closed"]}
+                type="button"
+                class="mini-button"
+                phx-click="reopen"
+              >Reopen</button>
               <button
                 :if={@ticket.status != "Closed"}
                 type="button"
@@ -294,7 +299,7 @@ defmodule SupportBotWeb.TicketLive.Show do
           </form>
           <button type="button" phx-click="show_email_form">Send Email (Simulated)</button>
           <p class="muted">
-            No real email is ever sent — this writes a simulated, clearly-labeled timeline entry.
+            No real email is ever sent. This writes a simulated, clearly-labeled timeline entry.
           </p>
         </section>
 
@@ -399,7 +404,7 @@ defmodule SupportBotWeb.TicketLive.Show do
       <div class="timeline-email-header">
         <span><strong>To:</strong> {@reply.email_to}</span>
         <span><strong>Subject:</strong> {@reply.email_subject}</span>
-        <span class="badge badge-waiting">SIMULATED — NOT DELIVERED</span>
+        <span class="badge badge-waiting">SIMULATED: NOT DELIVERED</span>
       </div>
       <p>{@reply.body}</p>
     </div>
@@ -411,7 +416,7 @@ defmodule SupportBotWeb.TicketLive.Show do
 
     ~H"""
     <div class="message agent" style="margin-bottom: 10px;">
-      <strong class="muted small">Live chat — {@reply.author_name}</strong>
+      <strong class="muted small">Live chat · {@reply.author_name}</strong>
       <p class="message-body">{@reply.body}</p>
     </div>
     """

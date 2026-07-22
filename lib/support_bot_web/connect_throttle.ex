@@ -2,7 +2,7 @@ defmodule SupportBotWeb.ConnectThrottle do
   @moduledoc """
   An `on_mount` hook that throttles LiveView socket **connects** per actor, so a
   reconnect storm can't spin up unbounded LiveView processes. Only the connected
-  (websocket) mount counts — the dead render is already covered by the router's
+  (websocket) mount counts; the dead render is already covered by the router's
   `:request` throttle.
 
   Over the limit we halt the mount and redirect home; the LiveView process dies

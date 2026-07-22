@@ -8,7 +8,7 @@ summary: Frameworks and libraries Dylan has built with.
 
 # Frameworks
 
-The frameworks behind the projects — each tied to something actually shipped or in active
+The frameworks behind the projects, each tied to something actually shipped or in active
 development, not a "familiar with" list.
 
 ## Phoenix & LiveView
@@ -17,12 +17,12 @@ Learned by building this platform: server-rendered LiveViews, PubSub-powered rea
 features (see the DylanSupport live chat takeover in
 [This Platform](/docs/project-support-platform)), Ecto for the data layer, and a
 controller-rendered landing page for the parts that don't need a socket. Framed honestly as
-"in progress" per the [colophon](/docs/colophon) — the goal was to ship something real while
+"in progress" per the [colophon](/docs/colophon): the goal was to ship something real while
 learning it, not to claim prior expertise.
 
 ## MERN (MongoDB, Express, React, Node)
 
-Used to build **Plot Twist**, a surprise-invitation web app — a full-stack JavaScript
+Used to build **Plot Twist**, a surprise-invitation web app: a full-stack JavaScript
 project with animated reveal interactions, expiring share links, and calendar integration.
 Hands-on product development and API-based web application work, on the stack most web roles
 actually run on.

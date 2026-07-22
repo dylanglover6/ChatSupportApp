@@ -69,7 +69,7 @@ defmodule SupportBotWeb.ChatLive do
          put_flash(
            socket,
            :error,
-           "You're sending messages a bit too fast — give it a few seconds."
+           "You're sending messages a bit too fast. Give it a few seconds."
          )}
 
       contact_intent?(message) ->
@@ -110,7 +110,7 @@ defmodule SupportBotWeb.ChatLive do
 
   def handle_event("create_ticket", %{"ticket" => attrs} = params, socket) do
     cond do
-      # A bot populated the hidden honeypot field — silently no-op (no AI/DB work),
+      # A bot populated the hidden honeypot field, silently no-op (no AI/DB work),
       # just dismiss the form so the bot can't tell it was rejected.
       honeypot_filled?(params) ->
         {:noreply, assign(socket, :show_ticket_form, false)}
@@ -120,7 +120,7 @@ defmodule SupportBotWeb.ChatLive do
          put_flash(
            socket,
            :error,
-           "You've submitted a lot just now — please try again in a few minutes."
+           "You've submitted a lot just now. Please try again in a few minutes."
          )}
 
       true ->
@@ -135,7 +135,7 @@ defmodule SupportBotWeb.ChatLive do
     Tickets.maybe_reopen_for_conversation(conversation_id)
 
     reply =
-      "Sure — I can pass a message straight to Dylan. Fill out the form and he'll follow up directly."
+      "Sure! I can pass a message straight to Dylan. Fill out the form and he'll follow up directly."
 
     assistant = Chat.add_message(conversation_id, "assistant", reply)
 
@@ -210,7 +210,7 @@ defmodule SupportBotWeb.ChatLive do
          put_flash(
            socket,
            :error,
-           "Sorry — that ticket couldn't be created. Please check the fields and try again."
+           "Sorry, that ticket couldn't be created. Please check the fields and try again."
          )}
     end
   end
@@ -230,11 +230,11 @@ defmodule SupportBotWeb.ChatLive do
           </div>
         </div>
         <p :if={@agent_active} class="widget-escalated">
-          {@active_agent_name} has joined this chat — DylanBot is paused.
+          {@active_agent_name} has joined this chat. DylanBot is paused.
         </p>
         <div id="chat-log" class="chat-log" phx-hook="AutoScroll">
           <div :if={@messages == []} class="message assistant">
-            Howdy! Ask me about Dylan's skills, projects, or how this platform is built —
+            Howdy! Ask me about Dylan's skills, projects, or how this platform is built,
             or just say hi and I'll take it from there.
           </div>
           <div :for={message <- @messages} class={"message #{message.role}"}>

@@ -2,7 +2,7 @@ defmodule SupportBotWeb.StatusLive do
   @moduledoc """
   Visitor-facing, read-only ticket status page reached via a per-ticket capability
   token (`/status/:token`). Shows the current status, who's handling it, and the
-  public updates — never internal notes.
+  public updates, never internal notes.
   """
   use SupportBotWeb, :live_view
 
@@ -60,7 +60,7 @@ defmodule SupportBotWeb.StatusLive do
 
       <section class="panel">
         <h2>Updates</h2>
-        <div :if={@timeline == []} class="muted">No updates yet — hang tight.</div>
+        <div :if={@timeline == []} class="muted">No updates yet. Hang tight.</div>
         <div class="timeline">
           <div :for={item <- @timeline}>{render_item(item)}</div>
         </div>
@@ -92,7 +92,7 @@ defmodule SupportBotWeb.StatusLive do
     <div class="timeline-email">
       <div class="timeline-email-header">
         <span><strong>Email from {@reply.author_name}</strong></span>
-        <span class="badge badge-waiting">SIMULATED — NOT DELIVERED</span>
+        <span class="badge badge-waiting">SIMULATED: NOT DELIVERED</span>
       </div>
       <p>{@reply.body}</p>
     </div>
@@ -126,10 +126,10 @@ defmodule SupportBotWeb.StatusLive do
     (events ++ replies) |> Enum.sort_by(& &1.at, DateTime)
   end
 
-  defp status_description("New"), do: "Received — waiting to be picked up by the team."
-  defp status_description("Open"), do: "In progress — someone's on it."
+  defp status_description("New"), do: "Received, waiting to be picked up by the team."
+  defp status_description("Open"), do: "In progress. Someone's on it."
   defp status_description("Waiting for Agent"), do: "Queued for the next available agent."
-  defp status_description("Resolved"), do: "Resolved — see the updates below."
+  defp status_description("Resolved"), do: "Resolved. See the updates below."
   defp status_description("Closed"), do: "Closed. Thanks for reaching out!"
   defp status_description(_), do: "We're on it."
 

@@ -12,7 +12,7 @@
       <span class="headline-line">My name is Dylan Glover.</span>
     </h1>
     <p class="hero-subline" data-subline>
-      <span data-subline-content>Thanks for stopping in — got a question? Just <a
+      <span data-subline-content>Thanks for stopping in! Got a question? Just <a
         href={~p"/chat"}
         class="subline-chat-link"
         data-subline-chat
@@ -42,7 +42,7 @@
     <div class="about-copy">
       <p>
         I'm a Technical Support Lead based in Austin, TX with 7+ years turning complex,
-        ambiguous customer problems into lasting solutions — root-cause troubleshooting,
+        ambiguous customer problems into lasting solutions: root-cause troubleshooting,
         REST API and log-level debugging, and the documentation and workflows that keep
         the next ticket from ever being filed.
       </p>
@@ -89,22 +89,84 @@
 <section id="projects" class="section projects-section reveal">
   <h2>Projects</h2>
   <div class="projects-grid">
-    <article :for={project <- @projects} class="pixel-card project-card">
-      <h3>{project.name}</h3>
+    <article :for={{project, idx} <- Enum.with_index(@projects)} class="pixel-card project-card">
+      <h3 id={"project-#{idx}-title"}>{project.name}</h3>
       <p>{project.tagline}</p>
       <div class="badge-row">
         <span :for={tech <- project.stack} class="badge">{tech}</span>
       </div>
-      <div class="project-links">
-        <a :if={project.github} href={project.github} target="_blank" rel="noopener noreferrer">
-          GitHub →
-        </a>
-        <a :if={project.live} href={project.live} target="_blank" rel="noopener noreferrer">
-          Live →
-        </a>
-      </div>
+      <span class="project-card-cue" aria-hidden="true">View details →</span>
+      <%!-- Stretched, visually-empty button: whole card opens the dialog, heading stays a real <h3>. --%>
+      <button
+        type="button"
+        class="project-card-hit"
+        data-project-open={"project-modal-#{idx}"}
+        aria-haspopup="dialog"
+        aria-labelledby={"project-#{idx}-title"}
+      >
+        <span class="sr-only">View details for {project.name}</span>
+      </button>
     </article>
   </div>
+
+  <dialog
+    :for={{project, idx} <- Enum.with_index(@projects)}
+    id={"project-modal-#{idx}"}
+    class="project-dialog"
+    aria-labelledby={"project-modal-#{idx}-title"}
+  >
+    <div class="project-dialog-inner">
+      <div class="project-dialog-head">
+        <h3 id={"project-modal-#{idx}-title"}>{project.name}</h3>
+        <button
+          type="button"
+          class="icon-button project-dialog-close"
+          data-project-close
+          aria-label="Close"
+        >✕</button>
+      </div>
+
+      <p class="project-dialog-blurb">{project.blurb}</p>
+
+      <div class="project-shots" role="group" aria-label="Screenshots">
+        <figure :for={shot <- project.screenshots} class="project-shot">
+          <div class="project-shot-frame">
+            <img :if={shot.src} src={shot.src} alt={shot.caption} loading="lazy" />
+            <span :if={!shot.src} class="project-shot-ph" aria-hidden="true">▚▚</span>
+          </div>
+          <figcaption>{shot.caption}</figcaption>
+        </figure>
+      </div>
+
+      <ul class="project-highlights">
+        <li :for={item <- project.highlights}>{item}</li>
+      </ul>
+
+      <div class="badge-row">
+        <span :for={tech <- project.stack} class="badge">{tech}</span>
+      </div>
+
+      <div class="project-dialog-links">
+        <.link :if={project.slug} navigate={~p"/docs/#{project.slug}"} class="btn btn-primary">
+          DylanDocs →
+        </.link>
+        <a
+          :if={project.live}
+          href={project.live}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn"
+        >Live →</a>
+        <a
+          :if={project.github}
+          href={project.github}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn"
+        >GitHub →</a>
+      </div>
+    </div>
+  </dialog>
 </section>
 
 <section id="resume" class="section resume-section reveal">

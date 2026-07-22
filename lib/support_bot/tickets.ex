@@ -132,7 +132,7 @@ defmodule SupportBot.Tickets do
           add_event(
             ticket_id,
             "email_sent",
-            "Simulated email sent to #{reply.email_to} — SIMULATED, not delivered."
+            "Simulated email sent to #{reply.email_to}. SIMULATED, not delivered."
           )
 
           do_resolve(ticket)

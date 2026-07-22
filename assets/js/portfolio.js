@@ -544,23 +544,23 @@ const GRID_MAX_CELLS = 6
 const GRID_TEXT_PAD = 20
 
 const BATTLESHIP_SCORE = 10
-const BS_SIZE = 8
-const SHIP_NAMES = { 2: "recon boat", 3: "submarine", 4: "destroyer", 5: "aircraft carrier" }
+const BS_SIZE = 6
+const SHIP_NAMES = { 3: "submarine", 4: "destroyer", 5: "aircraft carrier" }
 
 function bsRandInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1))
 }
 
-// Place 4-6 non-overlapping (but possibly touching) ships of length 2-5 in a size×size grid.
+// Place 3-4 non-overlapping (but possibly touching) ships of length 3-5 in a size×size grid.
 function placeBattleshipFleet(size) {
-  const count = bsRandInt(4, 6)
+  const count = bsRandInt(3, 4)
   const ships = []
   const occupied = new Set()
   let attempts = 0
 
   while (ships.length < count && attempts < 800) {
     attempts += 1
-    const len = bsRandInt(2, 5)
+    const len = bsRandInt(3, 5)
     const horizontal = Math.random() < 0.5
     const maxR = horizontal ? size - 1 : size - len
     const maxC = horizontal ? size - len : size - 1
@@ -849,7 +849,35 @@ function initHero() {
   initScrollspy()
 }
 
+// Project cards on the landing page open an expanded <dialog> with the full write-up,
+// screenshots, and links. Native <dialog> gives us Escape-to-close, a focus trap, and
+// focus restoration for free; we only wire the open trigger and backdrop-click close.
+function initProjectModals() {
+  const openers = document.querySelectorAll("[data-project-open]")
+  if (!openers.length) return
+
+  openers.forEach((opener) => {
+    opener.addEventListener("click", () => {
+      const dialog = document.getElementById(opener.getAttribute("data-project-open"))
+      if (dialog && typeof dialog.showModal === "function") dialog.showModal()
+    })
+  })
+
+  document.querySelectorAll("dialog.project-dialog").forEach((dialog) => {
+    dialog
+      .querySelectorAll("[data-project-close]")
+      .forEach((btn) => btn.addEventListener("click", () => dialog.close()))
+
+    // A click that lands on the dialog element itself (its ::backdrop) closes it;
+    // clicks inside .project-dialog-inner never match and stay open.
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+  })
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initHero()
   initKonami()
+  initProjectModals()
 })

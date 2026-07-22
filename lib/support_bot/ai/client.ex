@@ -273,7 +273,7 @@ defmodule SupportBot.AI.Client do
       end
 
     """
-    Current page: #{page.name} — #{page.description}
+    Current page: #{page.name}. #{page.description}
     Suggested actions here: #{Enum.join(page.actions, "; ")}
 
     DylanDocs context:
@@ -284,7 +284,7 @@ defmodule SupportBot.AI.Client do
   defp fallback_response(message, []) do
     if vague_help_request?(message) do
       """
-      Howdy! I can answer questions about Dylan — his skills, projects, work history, or how this site itself is built.
+      Howdy! I can answer questions about Dylan: his skills, projects, work history, or how this site itself is built.
 
       What would you like to know?
       """
@@ -319,5 +319,5 @@ defmodule SupportBot.AI.Client do
   end
 
   defp infer_likely_cause(text),
-    do: "Likely a question about #{detect_category(text)} — see the chatbot history for detail."
+    do: "Likely a question about #{detect_category(text)}. See the chatbot history for detail."
 end

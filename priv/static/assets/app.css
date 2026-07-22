@@ -458,13 +458,15 @@ button:disabled {
 .nav-expand-btn {
   display: none;
 }
+/* The collapse (« in the sidebar) and expand (» floating corner) controls are the same
+   toggle in two states, so they share size, border weight, and colors. */
 .nav-expand-btn {
   position: fixed;
   top: 12px;
   left: 12px;
   z-index: 60;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   min-height: 0;
   padding: 0;
   align-items: center;
@@ -599,21 +601,21 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     min-height: 0;
     margin-right: 14px;
     padding: 0;
     font-family: var(--font-display);
-    font-size: 11px;
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-muted);
+    font-size: 13px;
+    background: var(--bg-raised);
+    border: 2px solid var(--accent);
+    color: var(--accent);
   }
   .nav-collapse-btn:hover {
-    color: var(--accent);
+    color: var(--bg);
     border-color: var(--accent);
-    background: transparent;
+    background: var(--accent);
     transform: none;
   }
 
@@ -1038,7 +1040,9 @@ textarea { min-height: 96px; resize: vertical; }
   flex-direction: column;
   gap: 12px;
   padding: 16px 18px;
-  max-width: calc(100vw - 40px);
+  /* Fixed width so the panel never resizes when the info line changes length
+     (long "click the grid" prompt -> short "Miss." after the first shot). */
+  width: min(380px, calc(100vw - 40px));
   background: var(--bg-raised);
   border: 2px solid var(--accent);
   box-shadow: 0 0 0 4px var(--accent-glow), 0 20px 50px rgba(0, 0, 0, 0.6);
@@ -1068,7 +1072,8 @@ textarea { min-height: 96px; resize: vertical; }
 .bs-remaining b { color: var(--accent); }
 .bs-info {
   margin: 0;
-  min-height: 1.5em;
+  /* Reserve two lines so the board doesn't jump when the info text wraps/unwraps. */
+  min-height: 2.6em;
   text-align: center;
   font-family: var(--font-mono-terminal);
   font-size: 18px;
@@ -1076,7 +1081,7 @@ textarea { min-height: 96px; resize: vertical; }
 }
 .bs-board {
   display: grid;
-  grid-template-columns: repeat(var(--bs-cols, 8), 1fr);
+  grid-template-columns: repeat(var(--bs-cols, 6), 34px);
   gap: 4px;
   justify-content: center;
 }
@@ -1127,6 +1132,9 @@ textarea { min-height: 96px; resize: vertical; }
   color: var(--accent);
   text-align: center;
 }
+/* The class sets display:flex, which would otherwise beat the [hidden] attribute the
+   JS toggles between rounds; restore hidden's effect so the prompt only shows on a win. */
+.bs-again[hidden] { display: none; }
 .bs-again-actions { display: flex; gap: 10px; }
 .bs-again button { font-size: 10px; padding: 8px 16px; }
 
@@ -1320,6 +1328,137 @@ textarea { min-height: 96px; resize: vertical; }
 .project-card { display: flex; flex-direction: column; gap: 10px; }
 .badge-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .project-links { display: flex; gap: 12px; margin-top: auto; padding-top: 4px; }
+
+/* Whole card is a click target for its detail dialog. A stretched, transparent button
+   sits over the card so the <h3> stays a real heading (no interactive nesting). */
+.project-card { position: relative; cursor: pointer; }
+.project-card:hover,
+.project-card:focus-within {
+  border-color: var(--accent);
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 var(--accent-dim);
+}
+.project-card:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.project-card-cue {
+  margin-top: auto;
+  padding-top: 4px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 14px;
+}
+.project-card-hit {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.project-card-hit:hover { background: transparent; transform: none; }
+.project-card-hit:focus-visible { outline: none; }
+
+.project-dialog {
+  width: min(680px, calc(100vw - 28px));
+  max-height: calc(100vh - 64px);
+  padding: 0;
+  border: 2px solid var(--accent);
+  border-radius: 0;
+  background: var(--bg-raised);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.project-dialog::backdrop { background: rgba(0, 0, 0, 0.72); }
+.project-dialog-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+.project-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.project-dialog-head h3 { margin: 0; }
+.project-dialog-close { flex: none; }
+.project-dialog-blurb { margin: 0; }
+
+.project-shots {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.project-shot { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.project-shot-frame {
+  aspect-ratio: 16 / 10;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface) 0,
+    var(--surface) 8px,
+    var(--bg) 8px,
+    var(--bg) 16px
+  );
+  overflow: hidden;
+}
+.project-shot-frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.project-shot-ph {
+  font-family: var(--font-mono-terminal);
+  font-size: 26px;
+  letter-spacing: 2px;
+  color: var(--accent-dim);
+}
+.project-shot figcaption { color: var(--text-muted); font-size: 13px; }
+
+.project-highlights {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.project-highlights li::marker { color: var(--accent); }
+
+.project-dialog-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+
+.project-dialog[open] { animation: project-dialog-in 160ms ease-out; }
+.project-dialog[open]::backdrop { animation: project-backdrop-in 160ms ease-out; }
+@keyframes project-dialog-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes project-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .project-dialog[open],
+  .project-dialog[open]::backdrop { animation: none; }
+  .project-card:hover,
+  .project-card:focus-within { transform: none; }
+}
+@media (max-width: 600px) {
+  .project-dialog-links .btn { flex: 1 1 auto; }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .resume-section .btn { margin: 16px 0; }
 
@@ -1587,7 +1726,7 @@ textarea { min-height: 96px; resize: vertical; }
   right: 24px;
   bottom: 24px;
   z-index: 50;
-  width: 302px;
+  width: 380px;
   max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
@@ -1696,7 +1835,7 @@ textarea { min-height: 96px; resize: vertical; }
 
 .widget-panel {
   width: 100%;
-  height: 400px;
+  height: 540px;
   max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
