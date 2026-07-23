@@ -21,13 +21,23 @@ boots and serves real requests.
 
 ## 1. Provision the VM
 
-Cheapest option that survives compiling the release once and then running it
-indefinitely: **B1s (1 vCPU / 1GB RAM) + a 2GB swap file**, Ubuntu 24.04 LTS. At current
-Azure pricing that's roughly $7–9/month — a year of it fits comfortably inside the
-Azure for Students $100 credit, especially since student subscriptions also include some
-services free for 12 months. If you'd rather not manage swap, size up to **B2s (2 vCPU /
-4GB)** instead (~$30–35/month) for more headroom — still fine on the credit for several
-months, just not the whole year unmonitored.
+**Recommended size: `Standard_B2ats_v2`** (2 vCPU / 1GB RAM, AMD/x86) + a 2GB swap file,
+Ubuntu 24.04 LTS. The Azure for Students free tier covers **750 hrs/month each of B1s,
+B2ats v2 (AMD/x86), and B2pts v2 (Arm)** — so B2ats v2 is free exactly like B1s, but it's
+current-generation and far easier to actually provision. VM residuals (the Standard public
+IP ~$4/mo, OS disk, egress) run ~$5–8/month against the $100 credit.
+
+**Avoid the older `Standard_B1s`.** It's a previous-generation size with chronically
+restricted capacity; on Azure for Students subscriptions it frequently fails provisioning
+with `SkuNotAvailable` / capacity-restriction errors across *every* allowed region (the
+student "allowed locations" policy typically permits only a handful — check yours with
+`az policy assignment list --query "[?parameters.listOfAllowedLocations].parameters.listOfAllowedLocations.value" -o json`).
+If B1s won't deploy, switch to `Standard_B2ats_v2`: same 1GB RAM (so keep the swapfile),
+double the CPU for the one-time release compile, and no other runbook changes since it's
+also x86. Don't substitute `Standard_B2pts_v2` — that one is Arm/aarch64 and would require
+rebuilding the whole stack. If you want more RAM headroom and don't mind spending credit,
+size up to **B2s (2 vCPU / 4GB)** (~$30–35/month), still fine on the credit for several
+months.
 
 ```bash
 az login
@@ -37,7 +47,7 @@ az vm create \
   --resource-group dylanglover-rg \
   --name dylanglover-vm \
   --image Ubuntu2404 \
-  --size Standard_B1s \
+  --size Standard_B2ats_v2 \
   --admin-username dylan \
   --generate-ssh-keys \
   --public-ip-sku Standard
@@ -66,7 +76,7 @@ SSH in (`ssh dylan@<vm ip>`), then:
 ```bash
 sudo apt update && sudo apt install -y postgresql postgresql-contrib nodejs npm git curl build-essential
 
-# swap, if you went with B1s
+# swap — needed on B2ats_v2 or B1s (both are 1GB RAM)
 sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
