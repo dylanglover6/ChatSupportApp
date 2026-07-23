@@ -81,10 +81,22 @@ sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
 sudo mkswap /swapfile && sudo swapon /swapfile
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
-# Erlang/Elixir — Erlang Solutions repo has current versions for Ubuntu 24.04
-curl -1sLf https://packages.erlang-solutions.com/erlang-solutions_2.0_all.deb -o erlang-solutions.deb
-sudo dpkg -i erlang-solutions.deb
-sudo apt update && sudo apt install -y esl-erlang elixir
+# Erlang — from Ubuntu's own repo (precompiled; no source build, which matters on
+# the 1GB box). Do NOT use the Erlang Solutions apt repo / esl-erlang: it's
+# unreliable on noble/24.04, and its `elixir` package is 1.14 (app needs ~> 1.15).
+sudo apt install -y erlang unzip
+
+# Elixir — official precompiled build, auto-matched to the installed OTP major.
+# (Ubuntu's `elixir` apt package is 1.14, too old for the app's `~> 1.15`.)
+OTP=$(erl -noshell -eval 'io:format("~s",[erlang:system_info(otp_release)]), halt().')
+cd /tmp
+curl -fL -o "elixir-otp-${OTP}.zip" "https://github.com/elixir-lang/elixir/releases/download/v1.16.3/elixir-otp-${OTP}.zip"
+sudo rm -rf /opt/elixir && sudo mkdir -p /opt/elixir
+sudo unzip -o "elixir-otp-${OTP}.zip" -d /opt/elixir
+# symlink into /usr/local/bin so `mix` is on PATH for all users (incl. the build user)
+sudo ln -sf /opt/elixir/bin/elixir /opt/elixir/bin/elixirc /opt/elixir/bin/mix /opt/elixir/bin/iex /usr/local/bin/
+elixir --version   # confirm OTP + Elixir 1.16.3
+
 mix local.hex --force && mix local.rebar --force
 
 # Caddy
@@ -103,10 +115,19 @@ sudo -u postgres createdb support_bot_prod -O support_bot
 
 ```bash
 sudo useradd -r -m -d /opt/support_bot -s /bin/bash support_bot
-sudo -u support_bot git clone https://github.com/dylanglover6/ChatSupportApp.git /opt/support_bot/src
-cd /opt/support_bot/src
 
+# Clone AS support_bot. Its home (/opt/support_bot) is mode 0700, so your admin
+# user can't `cd` into it — do all repo work as support_bot, not by cd-ing there first.
+sudo -u support_bot git clone https://github.com/dylanglover6/ChatSupportApp.git /opt/support_bot/src
+
+# install hex + rebar for the build user (mix is per-user; avoids a mid-build prompt)
+sudo -u support_bot mix local.hex --force
+sudo -u support_bot mix local.rebar --force
+
+# Build — the `cd` lives INSIDE the support_bot shell (a `cd` as your admin user
+# would fail with "Permission denied" on the 0700 home).
 sudo -u support_bot bash -c '
+  cd /opt/support_bot/src
   mix deps.get --only prod
   (cd assets && npm install)
   MIX_ENV=prod mix assets.deploy
@@ -117,7 +138,9 @@ sudo ln -sfn /opt/support_bot/src/_build/prod/rel/support_bot /opt/support_bot/c
 ```
 
 Copy `deploy/env.example` to `/opt/support_bot/.env`, fill in real values (generate
-`SECRET_KEY_BASE` with `mix phx.gen.secret` on the VM), lock it down:
+`SECRET_KEY_BASE` with `MIX_ENV=prod mix phx.gen.secret` on the VM — the `MIX_ENV=prod`
+matters, since only prod deps were fetched; plain `mix phx.gen.secret` fails on missing
+dev deps. Or just `openssl rand -base64 64`), lock it down:
 
 ```bash
 sudo cp /opt/support_bot/src/deploy/env.example /opt/support_bot/.env
@@ -135,7 +158,10 @@ sudo -u support_bot bash -c '
   cd /opt/support_bot/current
   set -a; source /opt/support_bot/.env; set +a
   bin/support_bot eval "SupportBot.Release.migrate()"
-  bin/support_bot eval "SupportBot.Release.seed()"
+  # Seeds simulate a chat (Chat.add_message → PubSub broadcast), so the app must be
+  # STARTED, not just loaded. Plain eval "SupportBot.Release.seed()" fails with
+  # "unknown registry: SupportBot.PubSub" — start the app first in the same eval:
+  bin/support_bot eval "Application.ensure_all_started(:support_bot); SupportBot.Release.seed()"
 '
 ```
 

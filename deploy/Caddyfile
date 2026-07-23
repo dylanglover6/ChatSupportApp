@@ -2,9 +2,15 @@
 # This repo (Portfolio) owns it; other projects do NOT carry their own Caddy config.
 # See plans/unified-deployment-plan.md.
 
-# Portfolio + DylanBot (Phoenix release on :4000)
-dylanglover.com, www.dylanglover.com {
+# Portfolio + DylanBot (Phoenix release on :4000). Apex is canonical; www redirects
+# to it so LiveView's origin check (PHX_HOST=dylanglover.com) always matches — a single
+# reverse_proxy block for both hosts would let www through and Phoenix rejects its origin.
+dylanglover.com {
 	reverse_proxy 127.0.0.1:4000
+}
+
+www.dylanglover.com {
+	redir https://dylanglover.com{uri} permanent
 }
 
 # Plot Twist (Express + built React SPA on :3000, deployed onto the same VM)
