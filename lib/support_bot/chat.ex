@@ -67,6 +67,10 @@ defmodule SupportBot.Chat do
     Phoenix.PubSub.subscribe(SupportBot.PubSub, topic(conversation_id))
   end
 
+  def unsubscribe(conversation_id) do
+    Phoenix.PubSub.unsubscribe(SupportBot.PubSub, topic(conversation_id))
+  end
+
   defp broadcast(conversation_id, message) do
     Phoenix.PubSub.broadcast(SupportBot.PubSub, topic(conversation_id), message)
   end

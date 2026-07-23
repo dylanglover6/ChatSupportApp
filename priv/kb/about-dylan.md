@@ -10,28 +10,26 @@ summary: Hobbies, interests, and the beyond-resume stuff.
 
 The resume covers the work. This is the rest of it.
 
-I'm a Texan, born here and living in Austin since 2014. In 2017 I went through the
-University of Texas at Austin full-stack development bootcamp and started working in
-software, which is the throughline connecting the frontline-support years to the
-build-it-myself projects on this site.
+I'm a born Texan, and these days I live in Austin. I studied at Austin Community College
+and picked up full-stack development through the coding bootcamp at UT Austin — the
+throughline connecting where I started to the projects on this site.
 
 ## Outside the terminal
 
-Most of my free time happens outdoors. I hike the greenbelts and trails around Austin
-with my dog **Fawn**, swim the rivers and swimming holes the Hill Country is full of, and
-climb indoors. Bouldering is the current obsession. The rest of the good hours go to
-hanging out with friends.
+When I'm not looking at a computer, I'm usually outdoors. That means swimming the rivers
+around Austin, hiking the trails with my dog **Fawn**, and bouldering indoors — I'm still
+a novice on the wall, but I'm hooked. And when the weather's nice, I'd rather be traveling
+or camping than just about anything else.
 
-When I'm not moving, I'm usually reading, watching a movie, or occasionally getting pulled
-back into a video game. I like trying food I haven't had before and cooking at home in
-equal measure, and I take **good coffee** more seriously than is strictly reasonable (yes,
-that's what `man dylan` was hinting at).
+## Fawn
 
-## Off the beaten path
+Fawn is my usual hiking partner: a 12-year-old retriever mix whose two great loves in life
+are green beans and turkey.
 
-I travel whenever I can, and I'd rather find the overlooked place than the postcard one:
-camping, poking around local history, and generally following whatever nature or the map
-turns up wherever I end up.
+## Small pleasures
+
+I start almost every day with **coffee** — usually a black cold brew. The quieter hours go
+to reading and watching movies.
 
 ---
 

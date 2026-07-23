@@ -121,6 +121,32 @@ defmodule SupportBotWeb.WidgetLive do
     {:noreply, do_send(socket, text)}
   end
 
+  # Start a fresh conversation for this visitor. The old one stays in the DB;
+  # the new (empty) one becomes the visitor's latest, so a reload picks it up too.
+  def handle_event("new_chat", _params, socket) do
+    old = socket.assigns.conversation
+    conversation = Chat.create_conversation("Support chat", old.visitor_id)
+
+    if connected?(socket) do
+      Chat.unsubscribe(old.id)
+      Chat.subscribe(conversation.id)
+    end
+
+    {:noreply,
+     socket
+     |> assign(:conversation, conversation)
+     |> assign(:messages, [])
+     |> assign(:sources, [])
+     |> assign(:message, "")
+     |> assign(:thinking, false)
+     |> assign(:notice, nil)
+     |> assign(:unread_count, 0)
+     |> assign(:show_escalation_form, false)
+     |> assign(:escalated_ticket, nil)
+     |> assign(:agent_active, conversation.agent_active)
+     |> assign(:active_agent_name, conversation.active_agent_name)}
+  end
+
   def handle_event("show_escalation_form", _params, socket) do
     {:noreply, assign(socket, :show_escalation_form, true)}
   end
@@ -429,6 +455,8 @@ defmodule SupportBotWeb.WidgetLive do
         <footer class="widget-footer">
           <div class="widget-footer-group">
             <.link navigate={~p"/docs"}>DOCS</.link>
+            <span class="widget-footer-sep" aria-hidden="true">·</span>
+            <button type="button" class="widget-footer-link" phx-click="new_chat">NEW CHAT</button>
           </div>
           <button type="button" class="widget-footer-link" phx-click="show_escalation_form">
             Contact Support

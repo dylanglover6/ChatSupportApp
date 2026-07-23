@@ -16,9 +16,9 @@
       "One \"Dark Arcade\" design system across the portfolio, docs, chat, and support desk"
     ],
     screenshots: [
-      %{src: nil, caption: "Portfolio landing"},
-      %{src: nil, caption: "DylanDocs + DylanBot"},
-      %{src: nil, caption: "DylanSupport ticket desk"}
+      %{src: "/images/projects/portfolio1.png", caption: "Portfolio landing"},
+      %{src: "/images/projects/portfolio-2.png", caption: "DylanDocs + DylanBot"},
+      %{src: "/images/projects/portfolio-3.png", caption: "DylanSupport ticket desk"}
     ]
   },
   %{
@@ -38,9 +38,9 @@
       "Add-to-calendar .ics on the fly; Unsplash search proxied to keep the key server-side"
     ],
     screenshots: [
-      %{src: nil, caption: "Locked teaser + countdown"},
-      %{src: nil, caption: "Scratch to reveal"},
-      %{src: nil, caption: "Create an invite"}
+      %{src: "/images/projects/plot-twist1.png", caption: "Locked teaser + countdown"},
+      %{src: "/images/projects/plot-twist2.png", caption: "Scratch to reveal"},
+      %{src: "/images/projects/plot-twist3.png", caption: "Create an invite"}
     ]
   },
   %{
@@ -60,9 +60,9 @@
       "One scoring engine reused across the rater and Practice grading"
     ],
     screenshots: [
-      %{src: nil, caption: "Rate my prompt"},
-      %{src: nil, caption: "Learn"},
-      %{src: nil, caption: "Practice mode"}
+      %{src: "/images/projects/prompt-coach1.png", caption: "Rate my prompt"},
+      %{src: "/images/projects/prompt-coach2.png", caption: "Learn"},
+      %{src: "/images/projects/prompt-coach3.png", caption: "Practice mode"}
     ]
   }
 ]

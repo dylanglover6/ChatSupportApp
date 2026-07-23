@@ -130,7 +130,7 @@
 
       <div class="project-shots" role="group" aria-label="Screenshots">
         <figure :for={shot <- project.screenshots} class="project-shot">
-          <div class="project-shot-frame">
+          <div class={["project-shot-frame", shot.src && "has-shot"]}>
             <img :if={shot.src} src={shot.src} alt={shot.caption} loading="lazy" />
             <span :if={!shot.src} class="project-shot-ph" aria-hidden="true">▚▚</span>
           </div>

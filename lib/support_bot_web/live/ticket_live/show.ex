@@ -7,6 +7,7 @@ defmodule SupportBotWeb.TicketLive.Show do
   @impl true
   def mount(%{"id" => id}, session, socket) do
     visitor_id = RateLimit.visitor_id(session)
+    Tickets.ensure_visitor_tickets(visitor_id)
 
     case Tickets.get_visible_ticket(id, visitor_id) do
       nil ->

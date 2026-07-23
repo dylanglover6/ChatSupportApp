@@ -7,7 +7,9 @@ defmodule SupportBotWeb.TicketLive.Index do
 
   @impl true
   def mount(_params, session, socket) do
-    {:ok, load(assign(socket, :visitor_id, RateLimit.visitor_id(session)))}
+    visitor_id = RateLimit.visitor_id(session)
+    Tickets.ensure_visitor_tickets(visitor_id)
+    {:ok, load(assign(socket, :visitor_id, visitor_id))}
   end
 
   defp load(socket) do

@@ -4,18 +4,21 @@ defmodule SupportBot.Tickets do
   alias SupportBot.AI.Client
   alias SupportBot.Agents.Agent
   alias SupportBot.Chat
+  alias SupportBot.Chat.{Conversation, Message}
   alias SupportBot.Repo
   alias SupportBot.Tickets.{Assignment, Ticket, TicketEvent, TicketReply}
 
   @doc """
-  Tickets visible to `visitor_id`: the seed/mock tickets (no visitor_id) plus the
-  ones this visitor created. Keeps one visitor from seeing another's tickets — and
-  their customer emails — on the public DylanSupport desk.
+  Tickets visible to `visitor_id`: only the ones in this visitor's own scope (their
+  private demo clones plus anything they escalated). The seed/mock tickets are
+  templates (`visitor_id: nil`) and are never shown directly — see
+  `ensure_visitor_tickets/1`. Keeps one visitor from seeing another's tickets, and
+  their customer emails, on the public DylanSupport desk.
   """
   def list_tickets(visitor_id) do
     Ticket
     |> visible_to(visitor_id)
-    |> order_by([t], desc: t.urgent, desc: t.inserted_at)
+    |> order_by([t], desc: t.urgent, desc: t.inserted_at, desc: t.id)
     |> preload(:assigned_agent)
     |> Repo.all()
   end
@@ -23,8 +26,8 @@ defmodule SupportBot.Tickets do
   def recent_events(visitor_id, limit \\ 8) do
     TicketEvent
     |> join(:inner, [e], t in assoc(e, :ticket))
-    |> where([_e, t], is_nil(t.visitor_id) or t.visitor_id == ^visitor_id)
-    |> order_by([e], desc: e.inserted_at)
+    |> where([_e, t], t.visitor_id == ^visitor_id)
+    |> order_by([e], desc: e.inserted_at, desc: e.id)
     |> limit(^limit)
     |> preload(:ticket)
     |> Repo.all()
@@ -69,7 +72,137 @@ defmodule SupportBot.Tickets do
   end
 
   defp visible_to(query, visitor_id) do
-    from t in query, where: is_nil(t.visitor_id) or t.visitor_id == ^visitor_id
+    from t in query, where: t.visitor_id == ^visitor_id
+  end
+
+  @doc """
+  Ensures `visitor_id` has their own private copy of the seeded demo tickets.
+
+  The seed/template tickets carry `visitor_id: nil` and are never shown directly;
+  the first time a visitor reaches the support desk we deep-clone each template
+  (ticket + its conversation, messages, events, and replies) into the visitor's own
+  scope. From then on the visitor only sees and mutates their own sandbox, so a chat
+  takeover or reply on the demo desk is private to their session and self-heals when
+  `SupportBot.Cleanup` prunes the visit.
+
+  Idempotent and safe against concurrent mounts: a cheap existence check first, then
+  a re-check under a per-visitor advisory lock inside the cloning transaction.
+  """
+  def ensure_visitor_tickets(visitor_id) when is_binary(visitor_id) do
+    unless cloned?(visitor_id) do
+      Repo.transaction(fn ->
+        advisory_lock(visitor_id)
+        unless cloned?(visitor_id), do: clone_templates_for(visitor_id)
+      end)
+    end
+
+    :ok
+  end
+
+  def ensure_visitor_tickets(_), do: :ok
+
+  # Demo-clone conversations are scoped under a derived id so the chat widget's
+  # `Chat.latest_conversation/1` (an exact visitor_id match) never surfaces them,
+  # while `SupportBot.Cleanup` (any non-nil visitor_id) still prunes them.
+  defp demo_scope(visitor_id), do: visitor_id <> "::demo"
+
+  defp cloned?(visitor_id) do
+    Repo.exists?(from c in Conversation, where: c.visitor_id == ^demo_scope(visitor_id))
+  end
+
+  defp advisory_lock(visitor_id) do
+    Repo.query!("SELECT pg_advisory_xact_lock($1)", [:erlang.phash2(visitor_id)])
+  end
+
+  defp clone_templates_for(visitor_id) do
+    from(t in Ticket, where: is_nil(t.visitor_id), order_by: [asc: t.inserted_at, asc: t.id])
+    |> Repo.all()
+    |> Repo.preload([:events, :replies, conversation: :messages])
+    |> Enum.each(fn template ->
+      conversation = clone_conversation(template.conversation, visitor_id)
+      clone_ticket(template, visitor_id, conversation)
+    end)
+  end
+
+  defp clone_conversation(nil, _visitor_id), do: nil
+
+  defp clone_conversation(conversation, visitor_id) do
+    clone =
+      %Conversation{}
+      |> Conversation.changeset(%{title: conversation.title, visitor_id: demo_scope(visitor_id)})
+      |> Repo.insert!()
+
+    conversation.messages
+    |> Enum.sort_by(& &1.id)
+    |> Enum.each(fn message ->
+      %Message{}
+      |> Message.changeset(%{
+        conversation_id: clone.id,
+        role: message.role,
+        content: message.content,
+        sources: message.sources
+      })
+      |> Repo.insert!()
+    end)
+
+    clone
+  end
+
+  defp clone_ticket(template, visitor_id, conversation) do
+    clone =
+      %Ticket{}
+      |> Ticket.changeset(%{
+        conversation_id: conversation && conversation.id,
+        customer_name: template.customer_name,
+        customer_email: template.customer_email,
+        title: template.title,
+        issue_summary: template.issue_summary,
+        conversation_summary: template.conversation_summary,
+        steps_tried: template.steps_tried,
+        likely_cause: template.likely_cause,
+        missing_information: template.missing_information,
+        priority: template.priority,
+        category: template.category,
+        status: template.status,
+        support_level: template.support_level,
+        urgent: template.urgent,
+        assigned_agent_id: template.assigned_agent_id,
+        assignment_reason: template.assignment_reason,
+        kb_sources: template.kb_sources,
+        agent_assist: template.agent_assist,
+        visitor_id: visitor_id,
+        public_token: gen_public_token()
+      })
+      |> Repo.insert!()
+
+    template.events
+    |> Enum.sort_by(& &1.id)
+    |> Enum.each(fn event ->
+      %TicketEvent{}
+      |> TicketEvent.changeset(%{
+        ticket_id: clone.id,
+        event_type: event.event_type,
+        message: event.message
+      })
+      |> Repo.insert!()
+    end)
+
+    template.replies
+    |> Enum.sort_by(& &1.id)
+    |> Enum.each(fn reply ->
+      %TicketReply{}
+      |> TicketReply.changeset(%{
+        ticket_id: clone.id,
+        author_name: reply.author_name,
+        body: reply.body,
+        kind: reply.kind,
+        email_to: reply.email_to,
+        email_subject: reply.email_subject
+      })
+      |> Repo.insert!()
+    end)
+
+    clone
   end
 
   def create_from_conversation(conversation_id, attrs, sources) do
