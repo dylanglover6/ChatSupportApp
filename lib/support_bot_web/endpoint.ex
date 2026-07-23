@@ -28,6 +28,19 @@ defmodule SupportBotWeb.Endpoint do
     plug Phoenix.CodeReloader
   end
 
+  # Liveness probe for uptime monitoring. Answered here, before the session/router
+  # pipeline, so a monitor's polling never touches the DB, session, or rate limiter.
+  plug :health_check
+
+  defp health_check(%Plug.Conn{request_path: "/up"} = conn, _opts) do
+    conn
+    |> Plug.Conn.put_resp_content_type("text/plain")
+    |> Plug.Conn.send_resp(200, "ok")
+    |> Plug.Conn.halt()
+  end
+
+  defp health_check(conn, _opts), do: conn
+
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 

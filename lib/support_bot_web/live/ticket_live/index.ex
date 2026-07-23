@@ -83,6 +83,7 @@ defmodule SupportBotWeb.TicketLive.Index do
 
       <section class="panel">
         <h2>Ticket Queue</h2>
+        <div class="table-scroll">
         <table class="table">
           <thead>
             <tr>
@@ -134,6 +135,7 @@ defmodule SupportBotWeb.TicketLive.Index do
             </tr>
           </tbody>
         </table>
+        </div>
       </section>
 
       <section class="panel">

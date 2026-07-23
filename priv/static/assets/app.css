@@ -578,7 +578,10 @@ button:disabled {
 
   .app-shell {
     display: grid;
-    grid-template-columns: var(--sidebar-width) 1fr;
+    /* minmax(0, 1fr) — not a bare 1fr — so the main column can shrink below its
+       content's min-content width. Without the 0 minimum, wide children (the
+       support ticket table) blow the grid past the viewport and scroll the page. */
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   }
 
   .sidebar {
@@ -657,7 +660,9 @@ button:disabled {
 .shell { max-width: 1320px; margin: 0 auto; }
 .chat-page { width: min(1120px, 100%); margin: 0 auto; }
 
-.grid { display: grid; gap: 16px; }
+/* Single implicit column capped at minmax(0, 1fr) so a wide child (the ticket
+   table) can't stretch the column — and every sibling panel — past the viewport. */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .grid.two { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; }
 .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
@@ -823,6 +828,10 @@ textarea { min-height: 96px; resize: vertical; }
 
 .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+/* Wraps the wide ticket table so it scrolls horizontally within its panel on
+   narrower screens instead of forcing the whole page wider. Harmless once the
+   table collapses to stacked cards at <=600px. */
+.table-scroll { overflow-x: auto; }
 .table { width: 100%; border-collapse: collapse; }
 .table th, .table td { padding: 10px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
 .table th { color: var(--text-muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; }

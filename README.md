@@ -8,8 +8,9 @@ page, and — behind the scenes — **DylanSupport** is a working mock support-d
 triages, classifies, and assigns whatever DylanBot can't resolve to a mock agent, live.
 
 The interesting part: the support desk isn't a mockup bolted on for show. It's a real
-Phoenix/LiveView/PubSub system — local keyword search standing in for RAG, a local Ollama
-model with a deterministic fallback, rule-based ticket classification and routing, and a
+Phoenix/LiveView/PubSub system — local keyword search standing in for RAG, a configurable
+model provider (local Ollama in dev, Claude in prod) behind one boundary module with a
+deterministic offline fallback, rule-based ticket classification and routing, and a
 live chat takeover between an agent view and a visitor's chat widget over two browser
 windows. It's both a portfolio page and a demo of how Dylan builds things.
 
@@ -19,7 +20,7 @@ windows. It's both a portfolio page and a demo of how Dylan builds things.
 |---|---|---|
 | Portfolio landing | `/` | Hero, about/skills, projects, resume link, DylanDocs teaser, contact |
 | DylanDocs | `/docs`, `/docs/:slug` | Docs about Dylan — skills, projects, career, personal, meta — rendered from Markdown with real frontmatter, categories, and search |
-| DylanBot | every page (floating widget) + `/chat` | Page-aware chat assistant grounded in DylanDocs, backed by a local Ollama model with an offline fallback |
+| DylanBot | every page (floating widget) + `/chat` | Page-aware chat assistant grounded in DylanDocs, backed by a configurable model provider (local Ollama in dev, Claude in prod) with an offline fallback |
 | DylanSupport | `/support`, `/support/:id` | The mock agent desk: ticket queue, agent roster, auto-classification/assignment, ticket lifecycle, simulated outbound email, and live chat takeover |
 
 `/kb` and `/tickets` (the app's original FlowDesk-era routes) permanently redirect to
@@ -38,7 +39,7 @@ One Phoenix app, four Ecto-backed contexts under `lib/support_bot/`, wired toget
                                 │ persists messages, broadcasts over
                                 │ Phoenix PubSub ("conversation:<id>")
                                 ▼
-   priv/kb/*.md ──▶ KB.Loader/Search ──▶ AI.Client (Ollama, or fallback)
+   priv/kb/*.md ──▶ KB.Loader/Search ──▶ AI.Client (Ollama / Claude / fallback)
                                 │
                                 │ visitor escalates ("leave a message")
                                 ▼
@@ -63,8 +64,9 @@ One Phoenix app, four Ecto-backed contexts under `lib/support_bot/`, wired toget
 - **`SupportBot.Chat`** — conversations and messages (`user`/`assistant`/`agent`/`system`
   roles), plus the Phoenix PubSub plumbing (`subscribe/1`, and a broadcast on every
   `add_message/4`) that powers live chat takeover.
-- **`SupportBot.AI`** — the single boundary for all model calls: `chat/4` (Ollama, with a
-  deterministic fallback when it's unreachable), `summarize_ticket/3`, `agent_assist/2`,
+- **`SupportBot.AI`** — the single boundary for all model calls: `chat/4` (provider chosen by
+  `LLM_PROVIDER` — Ollama in dev, Claude in prod — with a deterministic fallback when the model
+  is unreachable or over budget), `summarize_ticket/3`, `agent_assist/2`,
   and rule-based `detect_category/1`, `detect_priority/1`, `detect_support_level/1`.
 - **`SupportBot.Agents`** — mock agents with `specialties`, `expertise_level` (1–3),
   `color`, and a shift window that handles overnight (cross-midnight) shifts.
@@ -103,6 +105,11 @@ Override the model with `OLLAMA_MODEL`. **Ollama is optional** — if it's unrea
 `AI.Client` falls through to a deterministic, still-Dylan-flavored response, and the
 widget's status dot switches from green to amber so it's obvious you're in fallback mode.
 Nothing else in the demo depends on Ollama being up.
+
+The provider is selected by `LLM_PROVIDER` (`ollama` by default; `anthropic` for a hosted
+Claude model, which is what the production deploy uses; `fallback` to force the offline
+response). The Claude path reads `ANTHROPIC_API_KEY` and is guarded by per-actor and global
+daily budget caps that degrade to the same fallback once exceeded.
 
 ### Verify a change
 
