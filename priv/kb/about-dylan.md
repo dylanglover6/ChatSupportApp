@@ -8,28 +8,24 @@ summary: Hobbies, interests, and the beyond-resume stuff.
 
 # About Dylan
 
-The resume covers the work. This is the rest of it.
+Now that you know my technical side, get to know the real me as well. I was born in North
+Texas, but I've lived in Austin since 2014. I studied at Austin Community College, but I
+found a love for coding and technology through the Coding Bootcamp at UT Austin. Before
+getting my first Software Support job, I spent five years working in an all-natural pet
+store in Austin. I have always loved dogs!
 
-I'm a born Texan, and these days I live in Austin. I studied at Austin Community College
-and picked up full-stack development through the coding bootcamp at UT Austin — the
-throughline connecting where I started to the projects on this site.
+My own dog is named **Fawn**, she is a retriever mix who is now 12 years old. I began
+fostering her in 2015 while working at the pet store and promptly adopted her. She loves
+going on walks and sniffing everything she can. She hates getting baths. I like to go on
+hikes around Austin and swim in the springs and greenbelt in my free time. I also like to
+go indoor bouldering to stay in shape, although I am not exactly an expert at it. I love to
+travel to places off the beaten path, and I plan multiple yearly camping trips with my group
+of friends.
 
-## Outside the terminal
-
-When I'm not looking at a computer, I'm usually outdoors. That means swimming the rivers
-around Austin, hiking the trails with my dog **Fawn**, and bouldering indoors — I'm still
-a novice on the wall, but I'm hooked. And when the weather's nice, I'd rather be traveling
-or camping than just about anything else.
-
-## Fawn
-
-Fawn is my usual hiking partner: a 12-year-old retriever mix whose two great loves in life
-are green beans and turkey.
-
-## Small pleasures
-
-I start almost every day with **coffee** — usually a black cold brew. The quieter hours go
-to reading and watching movies.
+I enjoy cooking and trying new food, and I have a deep love for good coffee. My go-to order
+is most likely a black cold brew, but I am known to mix it up. In my free time at home, I
+enjoy watching movies and reading books. When I have time, I like to play PC games with
+friends as well.
 
 ---
 
