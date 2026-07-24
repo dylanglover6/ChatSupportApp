@@ -274,28 +274,102 @@ button:disabled {
   transform: none;
 }
 
-/* Konami code easter egg */
+/* Arrow-key cheat code easter egg */
 .konami-crt {
   position: fixed;
   inset: 0;
   z-index: 200;
   pointer-events: none;
-  background: repeating-linear-gradient(
+  overflow: hidden;
+  /* Denser, higher-contrast scanlines over an accent wash for a punchier CRT look. */
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.55) 0,
+      rgba(0, 0, 0, 0.55) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    var(--accent-glow);
+  animation: konami-flicker 2.6s steps(2, end) forwards;
+}
+/* A bright band that rolls down the screen like a mistuned CRT vertical hold. */
+.konami-crt::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -30%;
+  height: 26%;
+  background: linear-gradient(
     to bottom,
-    var(--accent-glow) 0,
-    var(--accent-glow) 2px,
-    transparent 2px,
-    transparent 4px
+    transparent,
+    var(--accent-glow),
+    var(--accent) 50%,
+    var(--accent-glow),
+    transparent
   );
-  animation: konami-flicker 1.3s steps(2, end) forwards;
+  opacity: 0.55;
+  animation: konami-roll 1.3s linear 2 forwards;
 }
 @keyframes konami-flicker {
   0% { opacity: 0; }
-  10% { opacity: 1; }
-  20% { opacity: 0.15; }
-  35% { opacity: 0.9; }
-  50% { opacity: 0.1; }
-  70% { opacity: 0.7; }
+  5% { opacity: 1; }
+  11% { opacity: 0.08; }
+  18% { opacity: 0.98; }
+  26% { opacity: 0.2; }
+  38% { opacity: 1; }
+  49% { opacity: 0.12; }
+  60% { opacity: 0.9; }
+  72% { opacity: 0.3; }
+  85% { opacity: 0.75; }
+  100% { opacity: 0; }
+}
+@keyframes konami-roll {
+  from { top: -30%; }
+  to { top: 110%; }
+}
+/* Flickering ASCII-art portrait + name banner that strobe over the whole screen. */
+.konami-reveal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.03);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(6px, 1.6vh, 20px);
+  pointer-events: none;
+  animation: konami-portrait-flicker 2.6s steps(2, end) forwards;
+}
+.konami-portrait,
+.konami-nametag {
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  font-family: var(--font-mono-terminal);
+  line-height: 1;
+  letter-spacing: 0;
+  color: var(--accent);
+  /* Chromatic-aberration glow: an accent bloom plus offset red/cyan ghosts. */
+  text-shadow:
+    0 0 8px var(--accent),
+    2px 0 0 rgba(255, 40, 90, 0.55),
+    -2px 0 0 rgba(0, 220, 255, 0.55);
+}
+.konami-portrait { font-size: clamp(6px, 1.9vw, 15px); }
+.konami-nametag { font-size: clamp(5px, 1.6vw, 13px); }
+@keyframes konami-portrait-flicker {
+  0% { opacity: 0; }
+  6% { opacity: 0.95; }
+  13% { opacity: 0.06; }
+  21% { opacity: 1; }
+  30% { opacity: 0.18; }
+  44% { opacity: 0.95; }
+  57% { opacity: 0.1; }
+  70% { opacity: 0.85; }
+  84% { opacity: 0.35; }
   100% { opacity: 0; }
 }
 .konami-toast {
@@ -692,13 +766,18 @@ button:disabled {
   gap: 12px;
   padding-right: 6px;
   scrollbar-gutter: stable;
+  /* Match the DylanBot widget: terminal type, same scale. */
+  font-family: var(--font-mono-terminal);
+  font-size: 19px;
+  line-height: 1.45;
 }
 .message {
   max-width: 78%;
-  padding: 12px;
+  padding: 8px 11px;
   border-radius: 0;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 2px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
 }
 /* Only the text body preserves the model's own line breaks; the wrapper stays
    normal-whitespace so template indentation never renders as a leading indent. */
@@ -730,15 +809,21 @@ button:disabled {
   .thinking-dots span { animation: none; opacity: 0.6; }
 }
 
-.message.user { align-self: flex-end; background: var(--accent-glow); border-color: var(--accent-dim); }
+.message.user {
+  align-self: flex-end;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
 .message.assistant { align-self: flex-start; }
-.message.agent { align-self: flex-start; background: var(--info-glow); border-color: var(--info); }
+.message.agent { align-self: flex-start; border-color: var(--info); color: var(--info); }
 .message.system {
   align-self: center;
   max-width: 90%;
   background: transparent;
   border: 1px dashed var(--border);
   color: var(--text-muted);
+  font-family: var(--font-body);
   font-size: 13px;
   text-align: center;
 }
@@ -787,6 +872,27 @@ form { display: grid; gap: 10px; }
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
   margin-top: 12px;
+  padding-top: 12px;
+  border-top: 2px solid var(--accent);
+}
+/* Match the DylanBot widget input: terminal type + accent caret. */
+.chat-form input {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono-terminal);
+  font-size: 19px;
+  caret-color: var(--accent);
+}
+.chat-form button {
+  background: var(--accent);
+  border: 2px solid var(--bg-raised);
+  color: var(--bg);
+}
+.chat-form button:hover {
+  background: var(--accent-dim);
+  color: var(--bg);
+  transform: none;
 }
 .ticket-confirmation { margin-top: 16px; }
 
@@ -806,8 +912,26 @@ form { display: grid; gap: 10px; }
   background: var(--bg-raised);
   border: 2px solid var(--accent);
   border-radius: 0;
-  padding: 16px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  padding: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 6px 6px 0 var(--accent-dim);
+}
+.modal .section-heading { margin-bottom: 14px; }
+.modal-note {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  background: var(--warn-glow);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.modal-note a { color: var(--accent); }
+.modal-form { gap: 12px; }
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
 }
 .icon-button { padding: 5px 8px; font-size: 12px; }
 
@@ -886,6 +1010,9 @@ textarea { min-height: 96px; resize: vertical; }
 
 @media (max-width: 900px) {
   .grid.two { grid-template-columns: 1fr; }
+  /* Reserve space so the fixed DylanBot chat bar doesn't cover page content.
+     The hero landing keeps padding:0 via the higher-specificity :has(#hero) rule. */
+  .app-main { padding-bottom: 96px; }
 }
 @media (max-width: 840px) {
   .grid.three { grid-template-columns: 1fr; }
@@ -894,7 +1021,7 @@ textarea { min-height: 96px; resize: vertical; }
   .chat-log { height: calc(100vh - 280px); min-height: 360px; }
 }
 @media (max-width: 600px) {
-  .app-main { padding: 16px; }
+  .app-main { padding: 16px; padding-bottom: 96px; }
   .section-heading { flex-direction: column; align-items: flex-start; }
 
   .table thead { display: none; }
@@ -1037,8 +1164,8 @@ textarea { min-height: 96px; resize: vertical; }
 /* Battleship easter egg — a bordered board over the hero, unlocked at grid score 10 */
 .hero-content.is-battleship-hidden {
   opacity: 0;
+  transform: translateY(80px);
   pointer-events: none;
-  transition: opacity 0.35s ease;
 }
 .battleship {
   position: absolute;
@@ -1048,18 +1175,39 @@ textarea { min-height: 96px; resize: vertical; }
   z-index: 4;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px 18px;
+  align-items: center;
+  gap: 14px;
   /* Fixed width so the panel never resizes when the info line changes length
      (long "click the grid" prompt -> short "Miss." after the first shot). */
   width: min(380px, calc(100vw - 40px));
+  /* Slide up into place, delayed so it follows the hero sliding down first. */
+  animation: bs-in 0.5s ease-out 0.4s both;
+}
+/* Stylized ASCII wordmark above the box; sized so the 47-col banner never wraps. */
+.bs-ascii-title {
+  margin: 0;
+  width: 100%;
+  overflow: hidden;
+  white-space: pre;
+  text-align: center;
+  font-family: var(--font-mono-terminal);
+  font-size: clamp(6px, 2vw, 8px);
+  line-height: 1.05;
+  color: var(--accent);
+  text-shadow: 0 0 6px var(--accent-glow);
+}
+.bs-box {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
   background: var(--bg-raised);
   border: 2px solid var(--accent);
   box-shadow: 0 0 0 4px var(--accent-glow), 0 20px 50px rgba(0, 0, 0, 0.6);
-  animation: bs-in 0.3s ease-out;
 }
 @keyframes bs-in {
-  from { opacity: 0; transform: translate(-50%, -46%); }
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 90px)); }
   to { opacity: 1; transform: translate(-50%, -50%); }
 }
 .bs-header {
@@ -1166,6 +1314,8 @@ textarea { min-height: 96px; resize: vertical; }
   /* Let clicks in the empty hero area fall through to the interactive grid cells
      below; re-enable pointer events only on the actually-interactive children. */
   pointer-events: none;
+  /* Smoothly slide down + fade when Battleship takes over (and back on exit). */
+  transition: opacity 0.4s ease, transform 0.4s ease;
 }
 .hero-headline,
 .hero-subline {

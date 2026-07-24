@@ -492,6 +492,7 @@ function showStaticCursor(subline) {
   subline.content.appendChild(createCursor("is-static"))
 }
 
+// Arrow-key cheat code: the classic sequence minus the B/A button press.
 const KONAMI = [
   "ArrowUp",
   "ArrowUp",
@@ -501,9 +502,14 @@ const KONAMI = [
   "ArrowRight",
   "ArrowLeft",
   "ArrowRight",
-  "b",
-  "a",
 ]
+
+// ASCII portrait of Dylan (from the headshot) plus a stylized name banner, rendered as a
+// flickering CRT overlay when the cheat code lands. Keep the whitespace/backslashes exactly
+// as-is — they are the image; these strings are pre-escaped for JS.
+const DYLAN_ASCII = "                     -@@@@@@@@#\n                   %@@@@@@@@@@@@@.\n                 +@@@@@@@@@@@@@@@@\n                 @@@@@@@=       @@@\n                .@@@@@@@@#   :-: @@\n                 @@@#@@@##@.-@=  @@\n                 #@@=@+  @@.     #-\n                 @@*=@* #@@%.\n                -@@@@@@@@@@@@@%  @+\n                 @@@@@@*@@:      @*\n                 @@@@@@@@@:     @@\n                  =#@@@@@@@@#-  @\n                   :@@@@@@@=   =.\n                 =@@@@@@*#.   %==#=+=-:\n             .-%@@@@@@@@@*  %@@.#@+**#@%%#=:\n..       .-+#@@@@@@@@@@@@@::@@@+@%+++*@%%#%@%+:\n....  .-#*#@@+%@*@@@@@@@@@@=@@%@@#*=***@*#*@@*@.\n:::...%@@@==@+-%%*%@%%%%*+*@@*=@@*#+**+%+*+@%@@+\n--::.=@@@@@.@@ +##*******++@:=+@@*##**+#+=+%@@*#=\n---:-@@@@@@-*@+:#**++==++==@.=#@%#*#**+#+==@@%@#*.\n==--=@@@@@@@=@@.*%#++=++*++@.+@@%##%+*+*+**@@@%##="
+
+const DYLAN_NAME_ASCII = " _____   ___      _   _  _    ___ _    _____   _____ ___\n|   \\ \\ / / |    /_\\ | \\| |  / __| |  / _ \\ \\ / / __| _ \\\n| |) \\ V /| |__ / _ \\| .` | | (_ | |_| (_) \\ V /| _||   /\n|___/ |_| |____/_/ \\_\\_|\\_|  \\___|____\\___/ \\_/ |___|_|_\\"
 
 function revealSecret(innerHtml) {
   if (document.querySelector(".konami-toast")) return
@@ -513,7 +519,27 @@ function revealSecret(innerHtml) {
     crt.className = "konami-crt"
     crt.setAttribute("aria-hidden", "true")
     document.body.appendChild(crt)
-    setTimeout(() => crt.remove(), 1300)
+
+    const reveal = document.createElement("div")
+    reveal.className = "konami-reveal"
+    reveal.setAttribute("aria-hidden", "true")
+
+    const portrait = document.createElement("pre")
+    portrait.className = "konami-portrait"
+    portrait.textContent = DYLAN_ASCII
+    reveal.appendChild(portrait)
+
+    const nametag = document.createElement("pre")
+    nametag.className = "konami-nametag"
+    nametag.textContent = DYLAN_NAME_ASCII
+    reveal.appendChild(nametag)
+
+    document.body.appendChild(reveal)
+
+    setTimeout(() => {
+      crt.remove()
+      reveal.remove()
+    }, 2600)
   }
 
   const toast = document.createElement("div")
@@ -531,7 +557,7 @@ function revealSecret(innerHtml) {
 
 function triggerKonami() {
   revealSecret(
-    '<span aria-hidden="true">▲▲▼▼◄►◄►BA</span> <strong>SECRET UNLOCKED</strong>' +
+    '<span aria-hidden="true">▲▲▼▼◄►◄►</span> <strong>SECRET UNLOCKED</strong>' +
       '<span class="konami-body">You found the dev console. ' +
       '<a href="/docs/colophon">See how this site is built →</a></span>',
   )
@@ -546,6 +572,13 @@ const GRID_TEXT_PAD = 20
 const BATTLESHIP_SCORE = 10
 const BS_SIZE = 6
 const SHIP_NAMES = { 3: "submarine", 4: "destroyer", 5: "aircraft carrier" }
+// Stylized ASCII title shown above the board. Contains no HTML-special chars, so it's
+// safe to interpolate into the panel markup; backslashes are pre-escaped for JS.
+const BATTLESHIP_ASCII =
+  " ___   _ _____ _____ _    ___ ___ _  _ ___ ___\n" +
+  "| _ ) /_\\_   _|_   _| |  | __/ __| || |_ _| _ \\\n" +
+  "| _ \\/ _ \\| |   | | | |__| _|\\__ \\ __ || ||  _/\n" +
+  "|___/_/ \\_\\_|   |_| |____|___|___/_||_|___|_|"
 
 function bsRandInt(min, max) {
   return min + Math.floor(Math.random() * (max - min + 1))
@@ -587,17 +620,20 @@ function initBattleship(hero, onExit) {
   const panel = document.createElement("div")
   panel.className = "battleship"
   panel.innerHTML = `
-    <div class="bs-header">
-      <span class="bs-title">BATTLESHIP</span>
-      <span class="bs-remaining">SHIPS REMAINING: <b data-bs-remaining>0</b></span>
-    </div>
-    <p class="bs-info" data-bs-info></p>
-    <div class="bs-board" data-bs-board></div>
-    <div class="bs-again" data-bs-again hidden>
-      <span>All ships sunk! Play again?</span>
-      <div class="bs-again-actions">
-        <button type="button" data-bs-yes>Yes</button>
-        <button type="button" data-bs-no>No</button>
+    <pre class="bs-ascii-title" aria-hidden="true">${BATTLESHIP_ASCII}</pre>
+    <div class="bs-box">
+      <div class="bs-header">
+        <span class="bs-title">BATTLESHIP</span>
+        <span class="bs-remaining">SHIPS REMAINING: <b data-bs-remaining>0</b></span>
+      </div>
+      <p class="bs-info" data-bs-info></p>
+      <div class="bs-board" data-bs-board></div>
+      <div class="bs-again" data-bs-again hidden>
+        <span>All ships sunk! Play again?</span>
+        <div class="bs-again-actions">
+          <button type="button" data-bs-yes>Yes</button>
+          <button type="button" data-bs-no>No</button>
+        </div>
       </div>
     </div>
   `

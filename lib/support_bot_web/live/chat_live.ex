@@ -299,10 +299,20 @@ defmodule SupportBotWeb.ChatLive do
       >
         <section class="modal" phx-click-away="hide_ticket_form">
           <div class="section-heading">
-            <h2>Create Ticket</h2>
+            <h2>Leave a Message for Dylan</h2>
             <button type="button" class="icon-button" phx-click="hide_ticket_form">Close</button>
           </div>
-          <form phx-submit="create_ticket">
+          <p class="modal-note">
+            Heads up: this support desk is a portfolio demo, so the ticket it creates is
+            simulated and won't actually email Dylan. To really reach him, email
+            <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
+            or message him on <a
+              href="https://www.linkedin.com/in/dylanglover6"
+              target="_blank"
+              rel="noopener noreferrer"
+            >LinkedIn</a>.
+          </p>
+          <form phx-submit="create_ticket" class="modal-form">
             <input
               type="text"
               name="hp_url"
@@ -313,24 +323,32 @@ defmodule SupportBotWeb.ChatLive do
             />
             <input
               name="ticket[customer_name]"
-              placeholder="Customer name"
-              aria-label="Customer name"
+              placeholder="Your name"
+              aria-label="Your name"
               required
             />
             <input
               name="ticket[customer_email]"
               type="email"
-              placeholder="Customer email"
-              aria-label="Customer email"
+              placeholder="Your email"
+              aria-label="Your email"
               required
             />
-            <input name="ticket[title]" placeholder="Issue title" aria-label="Issue title" required />
+            <input
+              name="ticket[title]"
+              placeholder="What's this about?"
+              aria-label="What's this about?"
+              required
+            />
             <textarea
               name="ticket[details]"
               placeholder="Optional additional details"
               aria-label="Additional details"
             ></textarea>
-            <button class="primary" type="submit">Create Ticket</button>
+            <div class="modal-actions">
+              <button type="button" class="icon-button" phx-click="hide_ticket_form">Cancel</button>
+              <button class="primary" type="submit">Leave Message</button>
+            </div>
           </form>
         </section>
       </div>
