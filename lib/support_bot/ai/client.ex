@@ -268,7 +268,9 @@ defmodule SupportBot.AI.Client do
         "No matching DylanDocs pages were found for this message."
       else
         Enum.map_join(snippets, "\n\n", fn item ->
-          "#{item.title} (slug: #{item.slug})\n#{item.snippet}"
+          summary = Map.get(item, :summary, "")
+          summary_line = if summary == "", do: "", else: "Summary: #{summary}\n"
+          "#{item.title} (slug: #{item.slug})\n#{summary_line}#{item.snippet}"
         end)
       end
 

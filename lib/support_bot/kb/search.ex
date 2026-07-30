@@ -3,7 +3,9 @@ defmodule SupportBot.KB.Search do
 
   alias SupportBot.KB.Loader
 
-  @stopwords ~w(a an and are as at be by for from has have how i if in is it of on or our should the this to what when why with you your)
+  # "dylan"/"glover" are non-discriminative here — the whole site is about Dylan Glover,
+  # so his name appears in nearly every doc and would otherwise drown out real signal.
+  @stopwords ~w(a an and are as at be by for from has have how i if in is it of on or our should the this to what when why with you your dylan dylans glover me my his him he)
 
   def search(query, limit \\ 3) do
     tokens = tokenize(query)
@@ -19,6 +21,7 @@ defmodule SupportBot.KB.Search do
         title: article.title,
         slug: article.slug,
         path: article.path,
+        summary: Map.get(article, :summary, ""),
         snippet: snippet(article.body, tokens)
       }
     end)
@@ -36,14 +39,18 @@ defmodule SupportBot.KB.Search do
   defp score_article(article, tokens) do
     title = String.downcase(article.title)
     summary = String.downcase(Map.get(article, :summary, ""))
+    category = String.downcase(Map.get(article, :category, ""))
     body = String.downcase(article.body)
 
     score =
       Enum.reduce(tokens, 0, fn token, acc ->
         title_hits = if String.contains?(title, token), do: 4, else: 0
+        # Match the doc's category too, so "projects" surfaces the Projects docs,
+        # "skills" the Skills docs, etc. — even when the body never says the word.
+        category_hits = if String.contains?(category, token), do: 4, else: 0
         summary_hits = if String.contains?(summary, token), do: 2, else: 0
         body_hits = Regex.scan(~r/\b#{Regex.escape(token)}\b/, body) |> length()
-        acc + title_hits + summary_hits + body_hits
+        acc + title_hits + category_hits + summary_hits + body_hits
       end)
 
     {score, article}
