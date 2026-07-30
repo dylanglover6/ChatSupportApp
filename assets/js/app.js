@@ -68,6 +68,10 @@ Hooks.WidgetPath = {
     this.openFromEvent = () => this.pushEvent("open")
     window.addEventListener("dylanbot:open", this.openFromEvent)
 
+    // Open the "Contact Dylan" modal from outside the widget (e.g. the nav email button).
+    this.contactFromEvent = () => this.pushEvent("show_contact_form")
+    window.addEventListener("dylanbot:contact", this.contactFromEvent)
+
     // Remember once the visitor has opened DylanBot so the first-visit badge stops nagging.
     this.handleEvent("dylanbot_opened", () => {
       try { window.localStorage.setItem("dylanbot_greeted", "1") } catch (_) {}
@@ -79,6 +83,7 @@ Hooks.WidgetPath = {
   destroyed() {
     window.removeEventListener("phx:page-loading-stop", this.reportOnNavigate)
     window.removeEventListener("dylanbot:open", this.openFromEvent)
+    window.removeEventListener("dylanbot:contact", this.contactFromEvent)
   },
   report() {
     this.pushEvent("path_changed", { path: window.location.pathname })
@@ -135,6 +140,19 @@ document.addEventListener("click", (e) => {
   if (trigger) {
     e.preventDefault()
     window.dispatchEvent(new CustomEvent("dylanbot:open"))
+  }
+})
+
+// The nav "Email" links open the in-app "Contact Dylan" modal when real delivery is
+// wired up (the widget advertises this via data-contact-enabled). Otherwise we let the
+// mailto: href fall through so there's still a working no-JS / not-configured path.
+document.addEventListener("click", (e) => {
+  const trigger = e.target.closest("[data-open-contact]")
+  if (!trigger) return
+  const widget = document.getElementById("dylanbot-widget")
+  if (widget && widget.dataset.contactEnabled === "true") {
+    e.preventDefault()
+    window.dispatchEvent(new CustomEvent("dylanbot:contact"))
   }
 })
 

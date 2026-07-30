@@ -165,18 +165,23 @@ defmodule SupportBotWeb.WidgetLive do
     {:noreply, assign(socket, :show_escalation_form, false)}
   end
 
-  # The real "email Dylan" path — separate from the simulated ticket above.
+  # The real "email Dylan" path — a centered modal, separate from the simulated ticket
+  # flow. Opens over the widget (or from the nav email button when the panel is closed),
+  # leaving any open escalation form behind it so Cancel returns to where you were.
   def handle_event("show_contact_form", _params, socket) do
     {:noreply,
      socket
      |> assign(:show_contact_form, true)
-     |> assign(:show_escalation_form, false)
      |> assign(:contact_sent, false)
      |> assign(:notice, nil)}
   end
 
   def handle_event("hide_contact_form", _params, socket) do
     {:noreply, assign(socket, :show_contact_form, false)}
+  end
+
+  def handle_event("dismiss_contact_sent", _params, socket) do
+    {:noreply, assign(socket, :contact_sent, false)}
   end
 
   def handle_event("send_contact", %{"contact" => attrs} = params, socket) do
@@ -321,6 +326,7 @@ defmodule SupportBotWeb.WidgetLive do
         {:noreply,
          socket
          |> assign(:show_contact_form, false)
+         |> assign(:show_escalation_form, false)
          |> assign(:contact_sent, true)
          |> assign(:notice, nil)}
 
@@ -346,7 +352,12 @@ defmodule SupportBotWeb.WidgetLive do
   @impl true
   def render(assigns) do
     ~H"""
-    <div id="dylanbot-widget" class={["widget", @open && "is-open"]} phx-hook="WidgetPath">
+    <div
+      id="dylanbot-widget"
+      class={["widget", @open && "is-open"]}
+      phx-hook="WidgetPath"
+      data-contact-enabled={to_string(@contact_enabled)}
+    >
       <div class="widget-bar">
         <button
           type="button"
@@ -462,25 +473,17 @@ defmodule SupportBotWeb.WidgetLive do
 
         <div :if={@show_escalation_form} class="widget-escalation-form">
           <p class="widget-escalation-note">
-            Heads up: this support desk is a portfolio demo, so the ticket it creates is
-            simulated and won't actually email Dylan.
+            This creates a ticket in the prototype DylanSupport dashboard — it's a portfolio
+            demo, so it won't actually email Dylan. If you'd like to reach me directly, please
             <button
               :if={@contact_enabled}
               type="button"
               class="widget-inline-link"
               phx-click="show_contact_form"
-            >
-              Email Dylan directly →
-            </button>
-            <span :if={not @contact_enabled}>
-              To really reach him, email
-              <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
-              or message him on <a
-                href="https://www.linkedin.com/in/dylanglover6"
-                target="_blank"
-                rel="noopener noreferrer"
-              >LinkedIn</a>.
-            </span>
+            >email me directly</button><a
+              :if={not @contact_enabled}
+              href="mailto:dylanglover6@gmail.com"
+            >email me directly</a>.
           </p>
           <form phx-submit="create_ticket">
             <input
@@ -513,50 +516,6 @@ defmodule SupportBotWeb.WidgetLive do
             <div class="widget-escalation-actions">
               <button type="button" class="icon-button" phx-click="hide_escalation_form">Cancel</button>
               <button class="primary" type="submit">Leave Message</button>
-            </div>
-          </form>
-        </div>
-
-        <div :if={@contact_sent} class="widget-escalated">
-          Your message is on its way to Dylan. He'll reply to the email you gave. Thanks for reaching out!
-        </div>
-
-        <div :if={@show_contact_form} class="widget-escalation-form">
-          <p class="widget-escalation-note is-real">
-            This one's for real: it emails your message straight to Dylan, and he'll reply to
-            the address you enter. Prefer another channel? <a
-              href="https://www.linkedin.com/in/dylanglover6"
-              target="_blank"
-              rel="noopener noreferrer"
-            >LinkedIn</a>.
-          </p>
-          <form phx-submit="send_contact">
-            <input
-              type="text"
-              name="hp_url"
-              class="hp-field"
-              tabindex="-1"
-              autocomplete="off"
-              aria-hidden="true"
-            />
-            <input name="contact[name]" placeholder="Your name" aria-label="Your name" required />
-            <input
-              name="contact[email]"
-              type="email"
-              placeholder="Your email"
-              aria-label="Your email"
-              required
-            />
-            <textarea
-              name="contact[message]"
-              placeholder="Your message to Dylan"
-              aria-label="Your message to Dylan"
-              maxlength="5000"
-              required
-            ></textarea>
-            <div class="widget-escalation-actions">
-              <button type="button" class="icon-button" phx-click="hide_contact_form">Cancel</button>
-              <button class="primary" type="submit">Send to Dylan</button>
             </div>
           </form>
         </div>
@@ -601,6 +560,84 @@ defmodule SupportBotWeb.WidgetLive do
           </button>
         </footer>
       </section>
+
+      <div
+        :if={@show_contact_form}
+        class="modal-backdrop"
+        phx-window-keydown="hide_contact_form"
+        phx-key="Escape"
+      >
+        <section class="modal contact-modal" phx-click-away="hide_contact_form">
+          <div class="section-heading">
+            <h2>Contact Dylan</h2>
+            <button
+              type="button"
+              class="modal-close"
+              phx-click="hide_contact_form"
+              aria-label="Close"
+            >✕</button>
+          </div>
+          <p class="modal-note is-real">
+            Send me a message! I'd love to hear about any opportunity, feedback, or questions
+            that you may have for me.
+          </p>
+          <form phx-submit="send_contact" class="modal-form">
+            <input
+              type="text"
+              name="hp_url"
+              class="hp-field"
+              tabindex="-1"
+              autocomplete="off"
+              aria-hidden="true"
+            />
+            <input name="contact[name]" placeholder="Your name" aria-label="Your name" required />
+            <input
+              name="contact[email]"
+              type="email"
+              placeholder="Your email"
+              aria-label="Your email"
+              required
+            />
+            <textarea
+              name="contact[message]"
+              placeholder="Your message to Dylan"
+              aria-label="Your message to Dylan"
+              maxlength="5000"
+              required
+            ></textarea>
+            <div class="modal-actions">
+              <button type="button" class="icon-button" phx-click="hide_contact_form">Cancel</button>
+              <button class="primary" type="submit">Send</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <div
+        :if={@contact_sent}
+        class="modal-backdrop"
+        phx-window-keydown="dismiss_contact_sent"
+        phx-key="Escape"
+      >
+        <section class="modal contact-modal" phx-click-away="dismiss_contact_sent">
+          <div class="section-heading">
+            <h2>Message Sent</h2>
+            <button
+              type="button"
+              class="modal-close"
+              phx-click="dismiss_contact_sent"
+              aria-label="Close"
+            >✕</button>
+          </div>
+          <p class="modal-note is-real">
+            Your message is on its way to Dylan. He'll reply to the email you gave. Thanks for
+            reaching out!
+          </p>
+          <div class="modal-actions">
+            <button type="button" class="primary" phx-click="dismiss_contact_sent">Close</button>
+          </div>
+        </section>
+      </div>
     </div>
     """
   end

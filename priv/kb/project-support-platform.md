@@ -31,9 +31,14 @@ runtime.
   development, with a deterministic fallback response whenever the live call fails, so
   the site never breaks just because a model is unavailable.
 - **Agents / Tickets**: mock support agents with shifts, specialties, and expertise
-  levels; a rule-based assignment engine; and a fully simulated "send email" path with
-  zero SMTP dependency (see the [colophon](/docs/colophon) for why that's a hard
-  constraint, not a shortcut).
+  levels; a rule-based assignment engine; and a simulated ticket-desk "send email" path
+  that writes a clearly-labeled timeline entry instead of dispatching mail.
+- **Contact / real email**: the "Contact Dylan" form is the one genuinely outbound path,
+  kept separate from the simulated ticket flow. `SupportBot.Contact` POSTs to the Resend
+  HTTP API over the same `Req` client the AI provider uses, so no SMTP or mailer library is
+  needed. It's env-configured (`RESEND_API_KEY`, `CONTACT_TO_EMAIL`, `CONTACT_FROM_EMAIL`),
+  sets the visitor's address as `reply_to`, and falls back to a plain `mailto:` link when no
+  key is present.
 - **Live chat takeover**: Phoenix PubSub broadcasts an agent's messages into a
   visitor's chat widget in real time, and visitor replies back to the agent's screen,
   with no polling involved.

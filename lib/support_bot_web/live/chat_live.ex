@@ -370,28 +370,25 @@ defmodule SupportBotWeb.ChatLive do
         <section class="modal" phx-click-away="hide_ticket_form">
           <div class="section-heading">
             <h2>Leave a Message for Dylan</h2>
-            <button type="button" class="icon-button" phx-click="hide_ticket_form">Close</button>
+            <button
+              type="button"
+              class="modal-close"
+              phx-click="hide_ticket_form"
+              aria-label="Close"
+            >✕</button>
           </div>
           <p class="modal-note">
-            Heads up: this support desk is a portfolio demo, so the ticket it creates is
-            simulated and won't actually email Dylan.
+            This creates a ticket in the prototype DylanSupport dashboard — it's a portfolio
+            demo, so it won't actually email Dylan. If you'd like to reach me directly, please
             <button
               :if={@contact_enabled}
               type="button"
               class="modal-inline-link"
               phx-click="show_contact_form"
-            >
-              Email Dylan directly →
-            </button>
-            <span :if={not @contact_enabled}>
-              To really reach him, email
-              <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
-              or message him on <a
-                href="https://www.linkedin.com/in/dylanglover6"
-                target="_blank"
-                rel="noopener noreferrer"
-              >LinkedIn</a>.
-            </span>
+            >email me directly</button><a
+              :if={not @contact_enabled}
+              href="mailto:dylanglover6@gmail.com"
+            >email me directly</a>.
           </p>
           <form phx-submit="create_ticket" class="modal-form">
             <input
@@ -440,18 +437,19 @@ defmodule SupportBotWeb.ChatLive do
         phx-window-keydown="hide_contact_form"
         phx-key="Escape"
       >
-        <section class="modal" phx-click-away="hide_contact_form">
+        <section class="modal contact-modal" phx-click-away="hide_contact_form">
           <div class="section-heading">
-            <h2>Email Dylan</h2>
-            <button type="button" class="icon-button" phx-click="hide_contact_form">Close</button>
+            <h2>Contact Dylan</h2>
+            <button
+              type="button"
+              class="modal-close"
+              phx-click="hide_contact_form"
+              aria-label="Close"
+            >✕</button>
           </div>
           <p class="modal-note is-real">
-            This one's for real: it emails your message straight to Dylan, and he'll reply to
-            the address you enter. Prefer another channel? <a
-              href="https://www.linkedin.com/in/dylanglover6"
-              target="_blank"
-              rel="noopener noreferrer"
-            >LinkedIn</a>.
+            Send me a message! I'd love to hear about any opportunity, feedback, or questions
+            that you may have for me.
           </p>
           <form phx-submit="send_contact" class="modal-form">
             <input
@@ -479,7 +477,7 @@ defmodule SupportBotWeb.ChatLive do
             ></textarea>
             <div class="modal-actions">
               <button type="button" class="icon-button" phx-click="hide_contact_form">Cancel</button>
-              <button class="primary" type="submit">Send to Dylan</button>
+              <button class="primary" type="submit">Send</button>
             </div>
           </form>
         </section>
