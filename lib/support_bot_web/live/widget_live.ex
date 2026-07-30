@@ -1,7 +1,7 @@
 defmodule SupportBotWeb.WidgetLive do
   use SupportBotWeb, :live_widget
 
-  alias SupportBot.{AI.Client, AI.DocLinks, AI.PageContext, Chat, Tickets}
+  alias SupportBot.{AI.Client, AI.DocLinks, AI.PageContext, Chat, Contact, Tickets}
   alias SupportBot.KB.Search
   alias SupportBotWeb.RateLimit
 
@@ -29,6 +29,9 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:notice, nil)
      |> assign(:show_escalation_form, false)
      |> assign(:escalated_ticket, nil)
+     |> assign(:show_contact_form, false)
+     |> assign(:contact_sent, false)
+     |> assign(:contact_enabled, Contact.configured?())
      |> assign(:rate_actor, RateLimit.actor(socket, session))
      |> assign(:agent_active, conversation.agent_active)
      |> assign(:active_agent_name, conversation.active_agent_name)}
@@ -99,10 +102,15 @@ defmodule SupportBotWeb.WidgetLive do
   end
 
   def handle_event("close_on_escape", _params, socket) do
-    if socket.assigns.show_escalation_form do
-      {:noreply, assign(socket, :show_escalation_form, false)}
-    else
-      {:noreply, assign(socket, :open, false)}
+    cond do
+      socket.assigns.show_contact_form ->
+        {:noreply, assign(socket, :show_contact_form, false)}
+
+      socket.assigns.show_escalation_form ->
+        {:noreply, assign(socket, :show_escalation_form, false)}
+
+      true ->
+        {:noreply, assign(socket, :open, false)}
     end
   end
 
@@ -143,6 +151,8 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:unread_count, 0)
      |> assign(:show_escalation_form, false)
      |> assign(:escalated_ticket, nil)
+     |> assign(:show_contact_form, false)
+     |> assign(:contact_sent, false)
      |> assign(:agent_active, conversation.agent_active)
      |> assign(:active_agent_name, conversation.active_agent_name)}
   end
@@ -153,6 +163,35 @@ defmodule SupportBotWeb.WidgetLive do
 
   def handle_event("hide_escalation_form", _params, socket) do
     {:noreply, assign(socket, :show_escalation_form, false)}
+  end
+
+  # The real "email Dylan" path — separate from the simulated ticket above.
+  def handle_event("show_contact_form", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_contact_form, true)
+     |> assign(:show_escalation_form, false)
+     |> assign(:contact_sent, false)
+     |> assign(:notice, nil)}
+  end
+
+  def handle_event("hide_contact_form", _params, socket) do
+    {:noreply, assign(socket, :show_contact_form, false)}
+  end
+
+  def handle_event("send_contact", %{"contact" => attrs} = params, socket) do
+    cond do
+      # Bot filled the honeypot: silently dismiss so it can't tell it was dropped.
+      honeypot_filled?(params) ->
+        {:noreply, assign(socket, :show_contact_form, false)}
+
+      match?({:error, :rate_limited, _}, RateLimit.check(:ticket, socket.assigns.rate_actor)) ->
+        {:noreply,
+         add_notice(socket, "You've sent a lot just now. Please try again in a few minutes.")}
+
+      true ->
+        deliver_contact(socket, attrs)
+    end
   end
 
   def handle_event("create_ticket", %{"ticket" => attrs} = params, socket) do
@@ -267,6 +306,34 @@ defmodule SupportBotWeb.WidgetLive do
     {sources, status}
   rescue
     _ -> {[], :fallback}
+  end
+
+  defp deliver_contact(socket, attrs) do
+    params = %{
+      name: Map.get(attrs, "name", ""),
+      email: Map.get(attrs, "email", ""),
+      message: Map.get(attrs, "message", ""),
+      context: "DylanBot widget on #{socket.assigns.page_context.name}"
+    }
+
+    case Contact.deliver(params) do
+      {:ok, _id} ->
+        {:noreply,
+         socket
+         |> assign(:show_contact_form, false)
+         |> assign(:contact_sent, true)
+         |> assign(:notice, nil)}
+
+      {:error, :invalid} ->
+        {:noreply, add_notice(socket, "Please add your name, a valid email, and a message.")}
+
+      {:error, _reason} ->
+        {:noreply,
+         add_notice(
+           socket,
+           "Couldn't send that just now. You can email dylanglover6@gmail.com directly."
+         )}
+    end
   end
 
   defp add_notice(socket, text), do: assign(socket, :notice, text)
@@ -396,13 +463,24 @@ defmodule SupportBotWeb.WidgetLive do
         <div :if={@show_escalation_form} class="widget-escalation-form">
           <p class="widget-escalation-note">
             Heads up: this support desk is a portfolio demo, so the ticket it creates is
-            simulated and won't actually email Dylan. To really reach him, email
-            <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
-            or message him on <a
-              href="https://www.linkedin.com/in/dylanglover6"
-              target="_blank"
-              rel="noopener noreferrer"
-            >LinkedIn</a>.
+            simulated and won't actually email Dylan.
+            <button
+              :if={@contact_enabled}
+              type="button"
+              class="widget-inline-link"
+              phx-click="show_contact_form"
+            >
+              Email Dylan directly →
+            </button>
+            <span :if={not @contact_enabled}>
+              To really reach him, email
+              <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
+              or message him on <a
+                href="https://www.linkedin.com/in/dylanglover6"
+                target="_blank"
+                rel="noopener noreferrer"
+              >LinkedIn</a>.
+            </span>
           </p>
           <form phx-submit="create_ticket">
             <input
@@ -439,8 +517,67 @@ defmodule SupportBotWeb.WidgetLive do
           </form>
         </div>
 
-        <form :if={not @show_escalation_form} phx-submit="send" class="widget-input-row">
+        <div :if={@contact_sent} class="widget-escalated">
+          Your message is on its way to Dylan. He'll reply to the email you gave. Thanks for reaching out!
+        </div>
+
+        <div :if={@show_contact_form} class="widget-escalation-form">
+          <p class="widget-escalation-note is-real">
+            This one's for real: it emails your message straight to Dylan, and he'll reply to
+            the address you enter. Prefer another channel? <a
+              href="https://www.linkedin.com/in/dylanglover6"
+              target="_blank"
+              rel="noopener noreferrer"
+            >LinkedIn</a>.
+          </p>
+          <form phx-submit="send_contact">
+            <input
+              type="text"
+              name="hp_url"
+              class="hp-field"
+              tabindex="-1"
+              autocomplete="off"
+              aria-hidden="true"
+            />
+            <input name="contact[name]" placeholder="Your name" aria-label="Your name" required />
+            <input
+              name="contact[email]"
+              type="email"
+              placeholder="Your email"
+              aria-label="Your email"
+              required
+            />
+            <textarea
+              name="contact[message]"
+              placeholder="Your message to Dylan"
+              aria-label="Your message to Dylan"
+              maxlength="5000"
+              required
+            ></textarea>
+            <div class="widget-escalation-actions">
+              <button type="button" class="icon-button" phx-click="hide_contact_form">Cancel</button>
+              <button class="primary" type="submit">Send to Dylan</button>
+            </div>
+          </form>
+        </div>
+
+        <div
+          :if={not @show_escalation_form and not @show_contact_form}
+          id="widget-charcount"
+          class="char-warning widget-char-warning"
+          role="status"
+          aria-live="polite"
+        >
+        </div>
+        <form
+          :if={not @show_escalation_form and not @show_contact_form}
+          phx-submit="send"
+          class="widget-input-row"
+        >
           <input
+            id="widget-message-input"
+            phx-hook="CharCount"
+            data-count-target="widget-charcount"
             name="message"
             value={@message}
             placeholder={
@@ -448,6 +585,7 @@ defmodule SupportBotWeb.WidgetLive do
             }
             aria-label="Message"
             autocomplete="off"
+            maxlength={Client.max_message_chars()}
           />
           <button type="submit">Send</button>
         </form>

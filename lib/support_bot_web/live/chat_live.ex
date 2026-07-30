@@ -1,7 +1,7 @@
 defmodule SupportBotWeb.ChatLive do
   use SupportBotWeb, :live_view
 
-  alias SupportBot.{AI.Client, AI.DocLinks, Chat, Tickets}
+  alias SupportBot.{AI.Client, AI.DocLinks, Chat, Contact, Tickets}
   alias SupportBot.KB.Search
   alias SupportBotWeb.RateLimit
 
@@ -23,6 +23,9 @@ defmodule SupportBotWeb.ChatLive do
       |> assign(:thinking, false)
       |> assign(:show_ticket_form, false)
       |> assign(:created_ticket, nil)
+      |> assign(:show_contact_form, false)
+      |> assign(:contact_sent, false)
+      |> assign(:contact_enabled, Contact.configured?())
       |> assign(:visitor_id, visitor_id)
       |> assign(:rate_actor, RateLimit.actor(socket, session))
       |> assign(:agent_active, conversation.agent_active)
@@ -88,6 +91,37 @@ defmodule SupportBotWeb.ChatLive do
     {:noreply, assign(socket, :show_ticket_form, false)}
   end
 
+  # The real "email Dylan" path — separate from the simulated ticket above.
+  def handle_event("show_contact_form", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_contact_form, true)
+     |> assign(:show_ticket_form, false)
+     |> assign(:contact_sent, false)}
+  end
+
+  def handle_event("hide_contact_form", _params, socket) do
+    {:noreply, assign(socket, :show_contact_form, false)}
+  end
+
+  def handle_event("send_contact", %{"contact" => attrs} = params, socket) do
+    cond do
+      honeypot_filled?(params) ->
+        {:noreply, assign(socket, :show_contact_form, false)}
+
+      match?({:error, :rate_limited, _}, RateLimit.check(:ticket, socket.assigns.rate_actor)) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "You've submitted a lot just now. Please try again in a few minutes."
+         )}
+
+      true ->
+        deliver_contact(socket, attrs)
+    end
+  end
+
   def handle_event("issue_solved", _params, socket) do
     {:noreply,
      socket
@@ -105,7 +139,9 @@ defmodule SupportBotWeb.ChatLive do
      |> assign(:sources, [])
      |> assign(:message, "")
      |> assign(:show_ticket_form, false)
-     |> assign(:created_ticket, nil)}
+     |> assign(:created_ticket, nil)
+     |> assign(:show_contact_form, false)
+     |> assign(:contact_sent, false)}
   end
 
   def handle_event("create_ticket", %{"ticket" => attrs} = params, socket) do
@@ -150,6 +186,35 @@ defmodule SupportBotWeb.ChatLive do
   defp contact_intent?(message), do: Regex.match?(@contact_intent, message)
 
   defp honeypot_filled?(params), do: String.trim(Map.get(params, "hp_url", "")) != ""
+
+  defp deliver_contact(socket, attrs) do
+    params = %{
+      name: Map.get(attrs, "name", ""),
+      email: Map.get(attrs, "email", ""),
+      message: Map.get(attrs, "message", ""),
+      context: "DylanBot full-screen chat"
+    }
+
+    case Contact.deliver(params) do
+      {:ok, _id} ->
+        {:noreply,
+         socket
+         |> assign(:show_contact_form, false)
+         |> assign(:contact_sent, true)}
+
+      {:error, :invalid} ->
+        {:noreply,
+         put_flash(socket, :error, "Please add your name, a valid email, and a message.")}
+
+      {:error, _reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           "Couldn't send that just now. You can email dylanglover6@gmail.com directly."
+         )}
+    end
+  end
 
   defp deliver(socket, message) do
     conversation_id = socket.assigns.conversation.id
@@ -258,6 +323,9 @@ defmodule SupportBotWeb.ChatLive do
 
         <form phx-submit="send" class="chat-form">
           <input
+            id="chat-message-input"
+            phx-hook="CharCount"
+            data-count-target="chat-charcount"
             name="message"
             value={@message}
             placeholder={
@@ -267,9 +335,11 @@ defmodule SupportBotWeb.ChatLive do
             }
             aria-label="Message"
             autocomplete="off"
+            maxlength={Client.max_message_chars()}
           />
           <button class="primary" type="submit">Send</button>
         </form>
+        <div id="chat-charcount" class="char-warning" role="status" aria-live="polite"></div>
       </section>
 
       <section :if={@created_ticket} class="panel ticket-confirmation">
@@ -304,13 +374,24 @@ defmodule SupportBotWeb.ChatLive do
           </div>
           <p class="modal-note">
             Heads up: this support desk is a portfolio demo, so the ticket it creates is
-            simulated and won't actually email Dylan. To really reach him, email
-            <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
-            or message him on <a
-              href="https://www.linkedin.com/in/dylanglover6"
-              target="_blank"
-              rel="noopener noreferrer"
-            >LinkedIn</a>.
+            simulated and won't actually email Dylan.
+            <button
+              :if={@contact_enabled}
+              type="button"
+              class="modal-inline-link"
+              phx-click="show_contact_form"
+            >
+              Email Dylan directly →
+            </button>
+            <span :if={not @contact_enabled}>
+              To really reach him, email
+              <a href="mailto:dylanglover6@gmail.com">dylanglover6@gmail.com</a>
+              or message him on <a
+                href="https://www.linkedin.com/in/dylanglover6"
+                target="_blank"
+                rel="noopener noreferrer"
+              >LinkedIn</a>.
+            </span>
           </p>
           <form phx-submit="create_ticket" class="modal-form">
             <input
@@ -352,6 +433,63 @@ defmodule SupportBotWeb.ChatLive do
           </form>
         </section>
       </div>
+
+      <div
+        :if={@show_contact_form}
+        class="modal-backdrop"
+        phx-window-keydown="hide_contact_form"
+        phx-key="Escape"
+      >
+        <section class="modal" phx-click-away="hide_contact_form">
+          <div class="section-heading">
+            <h2>Email Dylan</h2>
+            <button type="button" class="icon-button" phx-click="hide_contact_form">Close</button>
+          </div>
+          <p class="modal-note is-real">
+            This one's for real: it emails your message straight to Dylan, and he'll reply to
+            the address you enter. Prefer another channel? <a
+              href="https://www.linkedin.com/in/dylanglover6"
+              target="_blank"
+              rel="noopener noreferrer"
+            >LinkedIn</a>.
+          </p>
+          <form phx-submit="send_contact" class="modal-form">
+            <input
+              type="text"
+              name="hp_url"
+              class="hp-field"
+              tabindex="-1"
+              autocomplete="off"
+              aria-hidden="true"
+            />
+            <input name="contact[name]" placeholder="Your name" aria-label="Your name" required />
+            <input
+              name="contact[email]"
+              type="email"
+              placeholder="Your email"
+              aria-label="Your email"
+              required
+            />
+            <textarea
+              name="contact[message]"
+              placeholder="Your message to Dylan"
+              aria-label="Your message to Dylan"
+              maxlength="5000"
+              required
+            ></textarea>
+            <div class="modal-actions">
+              <button type="button" class="icon-button" phx-click="hide_contact_form">Cancel</button>
+              <button class="primary" type="submit">Send to Dylan</button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      <section :if={@contact_sent} class="panel ticket-confirmation">
+        <h2>Message Sent</h2>
+        <p>Your message is on its way to Dylan. He'll reply to the email you gave.</p>
+        <p class="muted">Thanks for reaching out!</p>
+      </section>
     </div>
     """
   end

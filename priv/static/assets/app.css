@@ -896,6 +896,26 @@ form { display: grid; gap: 10px; }
 }
 .ticket-confirmation { margin-top: 16px; }
 
+/* Live character-limit warning under the chat inputs (toggled by the CharCount hook). */
+.char-warning {
+  display: none;
+  margin-top: 6px;
+  text-align: right;
+  font-family: var(--font-mono-terminal);
+  font-size: 14px;
+  line-height: 1.2;
+  color: var(--warn);
+}
+.char-warning.is-visible { display: block; }
+.char-warning.is-warn { color: var(--warn); }
+.char-warning.is-limit { color: var(--danger); font-weight: 700; }
+/* Widget variant: pad it to the panel gutter and drop the top margin. */
+.widget-char-warning {
+  margin: 0;
+  padding: 0 10px 4px;
+  font-size: 13px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -926,6 +946,29 @@ form { display: grid; gap: 10px; }
   color: var(--text-muted);
 }
 .modal-note a { color: var(--accent); }
+/* The real "email Dylan" note reads as a positive/go action, not a warning. */
+.modal-note.is-real { border-color: var(--ok); background: var(--ok-glow); }
+/* A link-styled button that lives inside the note text. */
+.modal-inline-link,
+.widget-inline-link {
+  display: inline;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  min-height: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.modal-inline-link:hover,
+.widget-inline-link:hover {
+  background: none;
+  color: var(--accent-dim);
+  transform: none;
+}
 .modal-form { gap: 12px; }
 .modal-actions {
   display: flex;
@@ -2129,8 +2172,16 @@ textarea { min-height: 96px; resize: vertical; }
 .widget-escalation-note a {
   color: var(--accent);
 }
+/* The real "email Dylan" note reads as a positive/go action, not a warning. */
+.widget-escalation-note.is-real {
+  border-color: var(--ok);
+  background: var(--ok-glow);
+}
 .widget-escalation-form form {
   gap: 8px;
+}
+.widget-escalation-form textarea {
+  min-height: 64px;
 }
 .widget-escalation-actions {
   display: flex;

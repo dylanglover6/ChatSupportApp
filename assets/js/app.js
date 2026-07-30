@@ -19,6 +19,45 @@ Hooks.AutoScroll = {
   }
 }
 
+// Live character counter for the chat inputs. Stays silent until you approach the
+// maxlength, then shows a warning, and announces when the limit is reached. Runs entirely
+// client-side (no phx-change) so keystrokes never hit the server.
+const CHAR_WARN_AT = 200
+
+Hooks.CharCount = {
+  mounted() {
+    this.counter = document.getElementById(this.el.dataset.countTarget)
+    this.onInput = () => this.render()
+    this.el.addEventListener("input", this.onInput)
+    this.render()
+  },
+  updated() {
+    this.render()
+  },
+  destroyed() {
+    this.el.removeEventListener("input", this.onInput)
+  },
+  render() {
+    if (!this.counter) return
+    const max = parseInt(this.el.getAttribute("maxlength"), 10) || 2000
+    const remaining = max - this.el.value.length
+    const c = this.counter
+
+    if (remaining <= 0) {
+      c.textContent = `Character limit reached (${max} max).`
+      c.classList.add("is-visible", "is-limit")
+      c.classList.remove("is-warn")
+    } else if (remaining <= CHAR_WARN_AT) {
+      c.textContent = `${remaining} character${remaining === 1 ? "" : "s"} left`
+      c.classList.add("is-visible", "is-warn")
+      c.classList.remove("is-limit")
+    } else {
+      c.textContent = ""
+      c.classList.remove("is-visible", "is-warn", "is-limit")
+    }
+  }
+}
+
 Hooks.WidgetPath = {
   mounted() {
     this.report()
