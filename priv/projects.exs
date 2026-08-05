@@ -28,7 +28,7 @@
     stack: ["React", "Node/Express", "MongoDB"],
     slug: "project-plot-twist",
     github: "https://github.com/dylanglover6/PlotTwist",
-    live: nil,
+    live: "https://plottwist.dylanglover.com/",
     blurb:
       "Plot Twist turns an invitation into a moment: build a reveal page, choose when it unlocks, and send a single temporary link. The recipient sees a locked teaser and countdown, then scratches the screen to uncover the reveal before the link expires for good.",
     highlights: [

@@ -17,6 +17,7 @@ links** for trips, parties, and any plan that deserves a little drama.
 | **Stack** | MERN (MongoDB · Express · React · Node) |
 | **Type** | Mobile-first web app |
 | **Year** | 2026 |
+| **Live** | [plottwist.dylanglover.com](https://plottwist.dylanglover.com/) |
 | **Repo** | [github.com/dylanglover6/PlotTwist](https://github.com/dylanglover6/PlotTwist) |
 
 ## What it is
