@@ -197,7 +197,17 @@ sudo -u support_bot bash -c 'cd /opt/support_bot/current && set -a; source /opt/
 sudo systemctl restart support_bot
 ```
 
-Worth scripting once you're tired of typing this by hand — not set up yet.
+This is scripted at `deploy/redeploy.sh`. Install it on the VM once:
+
+```bash
+sudo cp /opt/support_bot/src/deploy/redeploy.sh /usr/local/bin/redeploy-portfolio
+sudo chmod +x /usr/local/bin/redeploy-portfolio
+```
+
+Then every future deploy is just `sudo redeploy-portfolio`. The script runs the build
+and migrations as `support_bot` (cd inside that shell), restarts the service as root, and
+uses `set -e` so a failed build aborts BEFORE the restart — a broken compile never takes
+the live site down.
 
 **Before each release, audit dependencies** for known CVEs — `mix_audit` is in
 `mix.exs`, so run it from a dev checkout (it's a build-only dep, not fetched by

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <rect width="32" height="32" fill="#0b0c10"/>
+  <rect x="1.5" y="1.5" width="29" height="29" fill="none" stroke="#ffd23f" stroke-width="3"/>
+  <text x="16" y="17" fill="#ffd23f" font-family="'Courier New', monospace" font-size="14"
+        font-weight="700" text-anchor="middle" dominant-baseline="central"
+        letter-spacing="0.5">DG</text>
+</svg>
