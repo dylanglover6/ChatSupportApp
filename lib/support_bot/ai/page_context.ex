@@ -77,7 +77,11 @@ defmodule SupportBot.AI.PageContext do
     %{
       name: "Full-page chat",
       description: "The full-page version of this same DylanBot conversation.",
-      actions: ["What are Dylan's skills?", "Tell me about this platform", "Leave a message for Dylan"]
+      actions: [
+        "What are Dylan's skills?",
+        "Tell me about this platform",
+        "Leave a message for Dylan"
+      ]
     }
   end
 

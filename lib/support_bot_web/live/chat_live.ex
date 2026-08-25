@@ -21,6 +21,8 @@ defmodule SupportBotWeb.ChatLive do
       |> assign(:sources, sources_from_messages(messages))
       |> assign(:message, "")
       |> assign(:thinking, false)
+      |> assign(:slow_notice, false)
+      |> assign(:burn_timer, nil)
       |> assign(:show_ticket_form, false)
       |> assign(:created_ticket, nil)
       |> assign(:show_contact_form, false)
@@ -55,8 +57,20 @@ defmodule SupportBotWeb.ChatLive do
   def handle_info({:reply_ready, sources, _status}, socket) do
     {:noreply,
      socket
+     |> cancel_burn_timer()
      |> assign(:sources, merge_sources(socket.assigns.sources, sources))
-     |> assign(:thinking, false)}
+     |> assign(:thinking, false)
+     |> assign(:slow_notice, false)}
+  end
+
+  # The reply is taking a while (slow local inference / high token load). Show a
+  # holding message so the wait doesn't read as a hang. Only if we're still waiting.
+  def handle_info(:token_burn_notice, socket) do
+    if socket.assigns.thinking do
+      {:noreply, assign(socket, :slow_notice, true)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -239,11 +253,16 @@ defmodule SupportBotWeb.ChatLive do
         send(reply_to, {:reply_ready, sources, status})
       end)
 
+      timer = Process.send_after(self(), :token_burn_notice, 10_000)
+
       {:noreply,
        socket
+       |> cancel_burn_timer()
        |> assign(:messages, socket.assigns.messages ++ [user])
        |> assign(:message, "")
        |> assign(:thinking, true)
+       |> assign(:slow_notice, false)
+       |> assign(:burn_timer, timer)
        |> assign(:show_ticket_form, false)}
     end
   end
@@ -318,6 +337,9 @@ defmodule SupportBotWeb.ChatLive do
           </div>
           <div :if={@thinking} class="message assistant thinking" aria-label="DylanBot is thinking">
             <span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+          </div>
+          <div :if={@slow_notice} class="chat-notice" role="status">
+            High token burn right now. Hang tight, still working on it.
           </div>
         </div>
 
@@ -490,6 +512,13 @@ defmodule SupportBotWeb.ChatLive do
       </section>
     </div>
     """
+  end
+
+  # Cancels a pending "high token burn" notice timer, if any, so it can't fire after
+  # the reply already landed (or a new message reset the wait).
+  defp cancel_burn_timer(socket) do
+    if ref = socket.assigns[:burn_timer], do: Process.cancel_timer(ref)
+    assign(socket, :burn_timer, nil)
   end
 
   defp to_source_maps(snippets) do

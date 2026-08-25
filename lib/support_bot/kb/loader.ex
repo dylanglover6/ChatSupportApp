@@ -15,7 +15,8 @@ defmodule SupportBot.KB.Loader do
       |> Path.wildcard()
       |> Enum.map(&load_doc/1)
 
-    docs = if Keyword.get(opts, :include_hidden, false), do: docs, else: Enum.reject(docs, & &1.hidden)
+    docs =
+      if Keyword.get(opts, :include_hidden, false), do: docs, else: Enum.reject(docs, & &1.hidden)
 
     Enum.sort_by(docs, &{category_rank(&1.category), &1.order, &1.title})
   end
@@ -45,7 +46,9 @@ defmodule SupportBot.KB.Loader do
     id = Path.basename(path, ".md")
 
     html =
-      MDEx.to_html!(body, extension: [table: true, strikethrough: true, tasklist: true, autolink: true])
+      MDEx.to_html!(body,
+        extension: [table: true, strikethrough: true, tasklist: true, autolink: true]
+      )
 
     %{
       slug: Map.get(front, "slug", id),

@@ -26,6 +26,8 @@ defmodule SupportBotWeb.WidgetLive do
      |> assign(:unread_count, if(messages == [], do: 1, else: 0))
      |> assign(:message, "")
      |> assign(:thinking, false)
+     |> assign(:slow_notice, false)
+     |> assign(:burn_timer, nil)
      |> assign(:notice, nil)
      |> assign(:show_escalation_form, false)
      |> assign(:escalated_ticket, nil)
@@ -66,9 +68,20 @@ defmodule SupportBotWeb.WidgetLive do
   def handle_info({:reply_ready, sources, status}, socket) do
     {:noreply,
      socket
+     |> cancel_burn_timer()
      |> assign(:sources, merge_sources(socket.assigns.sources, sources))
      |> assign(:llm_status, if(status == :live, do: :ok, else: :fallback))
-     |> assign(:thinking, false)}
+     |> assign(:thinking, false)
+     |> assign(:slow_notice, false)}
+  end
+
+  # The reply is taking a while. Show a holding message so it doesn't read as a hang.
+  def handle_info(:token_burn_notice, socket) do
+    if socket.assigns.thinking do
+      {:noreply, assign(socket, :slow_notice, true)}
+    else
+      {:noreply, socket}
+    end
   end
 
   @impl true
@@ -294,12 +307,24 @@ defmodule SupportBotWeb.WidgetLive do
         send(reply_to, {:reply_ready, sources, status})
       end)
 
+      timer = Process.send_after(self(), :token_burn_notice, 10_000)
+
       socket
+      |> cancel_burn_timer()
       |> assign(:messages, socket.assigns.messages ++ [user])
       |> assign(:message, "")
       |> assign(:thinking, true)
+      |> assign(:slow_notice, false)
+      |> assign(:burn_timer, timer)
       |> assign(:notice, nil)
     end
+  end
+
+  # Cancels a pending "high token burn" notice timer, if any, so it can't fire after
+  # the reply already landed (or a new message reset the wait).
+  defp cancel_burn_timer(socket) do
+    if ref = socket.assigns[:burn_timer], do: Process.cancel_timer(ref)
+    assign(socket, :burn_timer, nil)
   end
 
   defp generate_reply(conversation_id, message, path, actor) do
@@ -449,6 +474,9 @@ defmodule SupportBotWeb.WidgetLive do
             aria-label="DylanBot is thinking"
           >
             <span class="thinking-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+          </div>
+          <div :if={@slow_notice} class="chat-notice" role="status">
+            High token burn right now. Hang tight, still working on it.
           </div>
         </div>
 

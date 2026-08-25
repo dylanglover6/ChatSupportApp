@@ -54,7 +54,11 @@ defmodule SupportBot.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       "assets.build": ["esbuild default"],
       "assets.deploy": ["esbuild default --minify", "phx.digest"],
-      test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"]
+      # DB-free: current tests are pure (KB.Search, AI.Client). The test env's
+      # Repo uses the Sandbox pool (connects lazily), so no Postgres is needed.
+      # Restore "ecto.create --quiet"/"ecto.migrate --quiet" here when a
+      # DB-backed test (DataCase/ConnCase) is added.
+      test: ["test"]
     ]
   end
 end
