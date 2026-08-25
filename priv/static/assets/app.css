@@ -809,6 +809,20 @@ button:disabled {
   .thinking-dots span { animation: none; opacity: 0.6; }
 }
 
+/* Holding message shown when a reply runs long ("high token burn"). */
+.chat-notice {
+  align-self: flex-start;
+  max-width: 85%;
+  font-family: var(--font-mono-terminal);
+  font-size: 15px;
+  color: var(--warn);
+  background: var(--warn-glow);
+  border: 1px solid var(--warn);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-top: 4px;
+}
+
 .message.user {
   align-self: flex-end;
   background: var(--accent);

@@ -5,16 +5,34 @@ defmodule SupportBot.KB.Search do
 
   # "dylan"/"glover" are non-discriminative here — the whole site is about Dylan Glover,
   # so his name appears in nearly every doc and would otherwise drown out real signal.
-  @stopwords ~w(a an and are as at be by for from has have how i if in is it of on or our should the this to what when why with you your dylan dylans glover me my his him he)
+  @stopwords ~w(a an and are as at be by for from has have how i if in is it of on or our should the this to what when why with you your dylan dylans glover me my his him he where does did done)
+
+  # Relevance gate for the source links we surface: a match must clear an absolute
+  # floor (so a single trivial body mention never qualifies) AND reach a fraction of
+  # the top-scoring doc (so trailing noise is dropped once there's a clear winner).
+  # If nothing clears the gate we return [], and the UI shows no source chips.
+  @min_score 3
+  @relative_floor 0.45
 
   def search(query, limit \\ 3) do
     tokens = tokenize(query)
 
-    # include_hidden: the bot can surface the unlisted Easter-eggs page when asked.
-    Loader.all(include_hidden: true)
-    |> Enum.map(&score_article(&1, tokens))
-    |> Enum.filter(fn {score, _article} -> score > 0 end)
-    |> Enum.sort_by(fn {score, _article} -> score end, :desc)
+    scored =
+      Loader.all(include_hidden: true)
+      |> Enum.map(&score_article(&1, tokens))
+      |> Enum.filter(fn {score, _article} -> score >= @min_score end)
+      |> Enum.sort_by(fn {score, _article} -> score end, :desc)
+
+    top_score =
+      case scored do
+        [{score, _article} | _] -> score
+        [] -> 0
+      end
+
+    cutoff = top_score * @relative_floor
+
+    scored
+    |> Enum.filter(fn {score, _article} -> score >= cutoff end)
     |> Enum.take(limit)
     |> Enum.map(fn {_score, article} ->
       %{
@@ -33,7 +51,32 @@ defmodule SupportBot.KB.Search do
     |> String.replace(~r/[^a-z0-9\s-]/, " ")
     |> String.split()
     |> Enum.reject(&(&1 in @stopwords or String.length(&1) < 3))
+    |> Enum.map(&stem/1)
+    |> Enum.reject(&(String.length(&1) < 3))
     |> Enum.uniq()
+  end
+
+  # Light suffix stripping so "worked"/"working"/"works" all reduce to "work" and
+  # match the "Work History" doc. Not linguistically perfect, just enough to stop
+  # inflected query words from missing the doc that answers them.
+  defp stem(token) do
+    cond do
+      String.ends_with?(token, "ing") and String.length(token) > 5 ->
+        String.slice(token, 0..-4//1)
+
+      String.ends_with?(token, "ed") and String.length(token) > 4 ->
+        String.slice(token, 0..-3//1)
+
+      String.ends_with?(token, "es") and String.length(token) > 4 ->
+        String.slice(token, 0..-3//1)
+
+      String.ends_with?(token, "s") and not String.ends_with?(token, "ss") and
+          String.length(token) > 3 ->
+        String.slice(token, 0..-2//1)
+
+      true ->
+        token
+    end
   end
 
   defp score_article(article, tokens) do
@@ -44,12 +87,16 @@ defmodule SupportBot.KB.Search do
 
     score =
       Enum.reduce(tokens, 0, fn token, acc ->
-        title_hits = if String.contains?(title, token), do: 4, else: 0
+        # Word-boundary prefix match everywhere: "work" matches "Work History" and
+        # "worked", but NOT "frameworks". Plain substring used to hand "frameworks"
+        # a bogus title hit for the token "work". Prefix keeps inflected forms.
+        re = ~r/\b#{Regex.escape(token)}[a-z]*\b/
         # Match the doc's category too, so "projects" surfaces the Projects docs,
         # "skills" the Skills docs, etc. — even when the body never says the word.
-        category_hits = if String.contains?(category, token), do: 4, else: 0
-        summary_hits = if String.contains?(summary, token), do: 2, else: 0
-        body_hits = Regex.scan(~r/\b#{Regex.escape(token)}\b/, body) |> length()
+        title_hits = if Regex.match?(re, title), do: 4, else: 0
+        category_hits = if Regex.match?(re, category), do: 4, else: 0
+        summary_hits = if Regex.match?(re, summary), do: 2, else: 0
+        body_hits = Regex.scan(re, body) |> length()
         acc + title_hits + category_hits + summary_hits + body_hits
       end)
 

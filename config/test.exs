@@ -16,3 +16,8 @@ config :support_bot, SupportBotWeb.Endpoint,
 
 config :logger, level: :warning
 config :phoenix, :plug_init_mode, :runtime
+
+# DB-free tests: don't start the Repo/Cleanup supervisor children, so `mix test`
+# runs without a Postgres. Set to true (and restore the ecto steps in the mix.exs
+# `test` alias) once a DB-backed test needs the database.
+config :support_bot, start_repo: false

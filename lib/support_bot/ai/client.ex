@@ -8,6 +8,8 @@ defmodule SupportBot.AI.Client do
   error, so the site never breaks no matter which one is configured.
   """
 
+  require Logger
+
   alias SupportBot.AI.{PageContext, Prompts}
   alias SupportBot.RateLimiter
 
@@ -49,6 +51,10 @@ defmodule SupportBot.AI.Client do
         if within_llm_budget?(actor) do
           anthropic_chat(user_message, recent_history, doc_snippets, path)
         else
+          Logger.warning(
+            "[AI.Client] anthropic over daily budget; using fallback (actor=#{inspect(actor)})"
+          )
+
           {fallback_response(user_message, doc_snippets), :fallback}
         end
 
@@ -56,6 +62,7 @@ defmodule SupportBot.AI.Client do
         ollama_chat(user_message, recent_history, doc_snippets, path)
 
       :fallback ->
+        Logger.info("[AI.Client] LLM_PROVIDER=fallback; using deterministic response")
         {fallback_response(user_message, doc_snippets), :fallback}
     end
   end
@@ -80,6 +87,24 @@ defmodule SupportBot.AI.Client do
       _ -> :ollama
     end
   end
+
+  @doc """
+  Logs the resolved chat provider once, at application boot. Makes a misread
+  `LLM_PROVIDER` (e.g. a systemd EnvironmentFile that didn't apply) obvious in
+  the startup logs instead of silently defaulting to Ollama.
+  """
+  def log_provider do
+    key_set? = System.get_env("ANTHROPIC_API_KEY") not in [nil, ""]
+    Logger.info("[AI.Client] chat provider=#{provider()} anthropic_key_set=#{key_set?}")
+  end
+
+  # Compact, log-safe summary of a failed Req result — status + a short body
+  # slice, never the whole payload (which can be large or contain the prompt).
+  defp summarize_result({:ok, %{status: status, body: body}}),
+    do: "http #{status} #{body |> inspect() |> String.slice(0, 300)}"
+
+  defp summarize_result({:error, reason}), do: "error #{inspect(reason)}"
+  defp summarize_result(other), do: inspect(other) |> String.slice(0, 300)
 
   defp ollama_chat(user_message, recent_history, doc_snippets, path) do
     model = System.get_env("OLLAMA_MODEL", "llama3.2")
@@ -107,7 +132,11 @@ defmodule SupportBot.AI.Client do
       {:ok, %{status: 200, body: %{"message" => %{"content" => content}}}} ->
         {content, :live}
 
-      _ ->
+      other ->
+        Logger.warning(
+          "[AI.Client] ollama call failed; using fallback: #{summarize_result(other)}"
+        )
+
         {fallback_response(user_message, doc_snippets), :fallback}
     end
   end
@@ -139,6 +168,7 @@ defmodule SupportBot.AI.Client do
           retry: false
         )
       else
+        Logger.error("[AI.Client] ANTHROPIC_API_KEY is unset; using fallback")
         :no_key
       end
 
@@ -146,7 +176,15 @@ defmodule SupportBot.AI.Client do
          %{"text" => text} when is_binary(text) <- List.first(blocks) do
       {text, :live}
     else
-      _ -> {fallback_response(user_message, doc_snippets), :fallback}
+      :no_key ->
+        {fallback_response(user_message, doc_snippets), :fallback}
+
+      other ->
+        Logger.warning(
+          "[AI.Client] anthropic call failed; using fallback: #{summarize_result(other)}"
+        )
+
+        {fallback_response(user_message, doc_snippets), :fallback}
     end
   end
 
