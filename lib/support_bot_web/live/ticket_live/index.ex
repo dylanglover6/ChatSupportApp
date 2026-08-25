@@ -84,57 +84,57 @@ defmodule SupportBotWeb.TicketLive.Index do
       <section class="panel">
         <h2>Ticket Queue</h2>
         <div class="table-scroll">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Ticket</th>
-              <th>Customer</th>
-              <th>Category</th>
-              <th>Level</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Assigned</th>
-              <th>Age</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr :if={@tickets == []}>
-              <td colspan="8" class="muted">No tickets yet. Create one from the chat widget.</td>
-            </tr>
-            <tr :for={ticket <- @tickets} class={ticket.urgent && "is-urgent-row"}>
-              <td data-label="Ticket">
-                <span :if={ticket.urgent} class="badge badge-urgent-pin">URGENT</span>
-                <.link navigate={~p"/support/#{ticket.id}"}>{ticket.title}</.link>
-              </td>
-              <td data-label="Customer">{ticket.customer_email}</td>
-              <td data-label="Category">
-                <.badge>{ticket.category}</.badge>
-              </td>
-              <td data-label="Level">
-                <.badge kind="level">L{ticket.support_level}</.badge>
-              </td>
-              <td data-label="Priority">
-                <.badge kind={String.downcase(ticket.priority)}>{ticket.priority}</.badge>
-              </td>
-              <td data-label="Status">
-                <.badge kind={status_kind(ticket.status)}>{ticket.status}</.badge>
-              </td>
-              <td data-label="Assigned">
-                <span :if={ticket.assigned_agent} class="agent-chip">
-                  <.badge kind={String.downcase(ticket.assigned_agent.color)}>
-                    {ticket.assigned_agent.name}
-                  </.badge>
-                  <span class="expertise-dots small">{expertise_dots(
-                    ticket.assigned_agent.expertise_level
-                  )}</span>
-                </span>
-              </td>
-              <td data-label="Age" class={["muted", sla_class(ticket)]}>
-                {age(ticket.inserted_at)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Ticket</th>
+                <th>Customer</th>
+                <th>Category</th>
+                <th>Level</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Assigned</th>
+                <th>Age</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr :if={@tickets == []}>
+                <td colspan="8" class="muted">No tickets yet. Create one from the chat widget.</td>
+              </tr>
+              <tr :for={ticket <- @tickets} class={ticket.urgent && "is-urgent-row"}>
+                <td data-label="Ticket">
+                  <span :if={ticket.urgent} class="badge badge-urgent-pin">URGENT</span>
+                  <.link navigate={~p"/support/#{ticket.id}"}>{ticket.title}</.link>
+                </td>
+                <td data-label="Customer">{ticket.customer_email}</td>
+                <td data-label="Category">
+                  <.badge>{ticket.category}</.badge>
+                </td>
+                <td data-label="Level">
+                  <.badge kind="level">L{ticket.support_level}</.badge>
+                </td>
+                <td data-label="Priority">
+                  <.badge kind={String.downcase(ticket.priority)}>{ticket.priority}</.badge>
+                </td>
+                <td data-label="Status">
+                  <.badge kind={status_kind(ticket.status)}>{ticket.status}</.badge>
+                </td>
+                <td data-label="Assigned">
+                  <span :if={ticket.assigned_agent} class="agent-chip">
+                    <.badge kind={String.downcase(ticket.assigned_agent.color)}>
+                      {ticket.assigned_agent.name}
+                    </.badge>
+                    <span class="expertise-dots small">{expertise_dots(
+                      ticket.assigned_agent.expertise_level
+                    )}</span>
+                  </span>
+                </td>
+                <td data-label="Age" class={["muted", sla_class(ticket)]}>
+                  {age(ticket.inserted_at)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

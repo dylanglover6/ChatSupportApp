@@ -16,7 +16,14 @@ defmodule SupportBot.Agents.Agent do
   def changeset(agent, attrs) do
     agent
     |> cast(attrs, [:name, :color, :specialties, :shift_start, :shift_end, :expertise_level])
-    |> validate_required([:name, :color, :specialties, :shift_start, :shift_end, :expertise_level])
+    |> validate_required([
+      :name,
+      :color,
+      :specialties,
+      :shift_start,
+      :shift_end,
+      :expertise_level
+    ])
     |> validate_inclusion(:expertise_level, 1..3)
   end
 end

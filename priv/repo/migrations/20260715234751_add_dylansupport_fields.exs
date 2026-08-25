@@ -25,6 +25,7 @@ defmodule SupportBot.Repo.Migrations.AddDylansupportFields do
 
     execute "UPDATE ticket_replies SET kind = 'email' WHERE reply_type = 'agent_reply'",
             ""
+
     execute "UPDATE ticket_replies SET kind = 'note' WHERE reply_type = 'internal_note'",
             ""
 
