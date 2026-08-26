@@ -20,21 +20,32 @@ defmodule SupportBot.KB.Search do
     scored =
       Loader.all(include_hidden: true)
       |> Enum.map(&score_article(&1, tokens))
-      |> Enum.filter(fn {score, _article} -> score >= @min_score end)
-      |> Enum.sort_by(fn {score, _article} -> score end, :desc)
+      |> Enum.filter(fn {score, _strong?, _article} -> score >= @min_score end)
+      |> Enum.sort_by(fn {score, _strong?, _article} -> score end, :desc)
+
+    # Prefer docs that matched in a title/category/summary (a real topic match)
+    # over docs that only matched a word in the body. A generic query token like
+    # "work" mentioned in passing shouldn't surface Languages/Tooling alongside
+    # Work History. Only fall back to body-only matches when nothing matched a
+    # strong field, so queries whose answer lives purely in body text still work.
+    scored =
+      case Enum.filter(scored, fn {_score, strong?, _article} -> strong? end) do
+        [] -> scored
+        strong -> strong
+      end
 
     top_score =
       case scored do
-        [{score, _article} | _] -> score
+        [{score, _strong?, _article} | _] -> score
         [] -> 0
       end
 
     cutoff = top_score * @relative_floor
 
     scored
-    |> Enum.filter(fn {score, _article} -> score >= cutoff end)
+    |> Enum.filter(fn {score, _strong?, _article} -> score >= cutoff end)
     |> Enum.take(limit)
-    |> Enum.map(fn {_score, article} ->
+    |> Enum.map(fn {_score, _strong?, article} ->
       %{
         title: article.title,
         slug: article.slug,
@@ -85,8 +96,8 @@ defmodule SupportBot.KB.Search do
     category = String.downcase(Map.get(article, :category, ""))
     body = String.downcase(article.body)
 
-    score =
-      Enum.reduce(tokens, 0, fn token, acc ->
+    {score, strong?} =
+      Enum.reduce(tokens, {0, false}, fn token, {acc, strong?} ->
         # Word-boundary prefix match everywhere: "work" matches "Work History" and
         # "worked", but NOT "frameworks". Plain substring used to hand "frameworks"
         # a bogus title hit for the token "work". Prefix keeps inflected forms.
@@ -97,10 +108,14 @@ defmodule SupportBot.KB.Search do
         category_hits = if Regex.match?(re, category), do: 4, else: 0
         summary_hits = if Regex.match?(re, summary), do: 2, else: 0
         body_hits = Regex.scan(re, body) |> length()
-        acc + title_hits + category_hits + summary_hits + body_hits
+        # "strong" = matched the doc's title or category (its real topic), not a
+        # passing mention in the summary or body. Summary/body still add to score
+        # for ranking; they just don't make a doc a topic match on their own.
+        strong? = strong? or title_hits > 0 or category_hits > 0
+        {acc + title_hits + category_hits + summary_hits + body_hits, strong?}
       end)
 
-    {score, article}
+    {score, strong?, article}
   end
 
   defp snippet(body, []), do: body |> String.slice(0, 260) |> String.trim()
