@@ -18,6 +18,13 @@ defmodule SupportBot.KB.SearchTest do
       assert Search.search("what is the meaning of life") == []
     end
 
+    test "drops body-only matches when a title/category match exists" do
+      # "worked" hits Work History's title; Languages/Tooling only mention "work"
+      # in passing, so they must not appear as sources.
+      slugs = "Where has Dylan worked?" |> Search.search() |> Enum.map(& &1.slug)
+      assert slugs == ["work-history"]
+    end
+
     test "honors the result limit" do
       assert length(Search.search("skills projects work docs career", 3)) <= 3
     end
